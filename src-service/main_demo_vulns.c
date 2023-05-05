@@ -11,6 +11,7 @@ void place_flag()
 
 int main()
 {
+    //Type in 7 chars in order to exploit flag
     printf("Addr input: 0x%p\n",    (void *) input);
     printf("Addr secret: 0x%p\n",   (void *) secret);
     
