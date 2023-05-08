@@ -1,0 +1,1 @@
+int gen_sound_sin_harmonies(float len, int samplerate, float max_amplitude, harmony *harmonies, float *buf);
