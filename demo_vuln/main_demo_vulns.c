@@ -3,11 +3,7 @@
 
 char input[8] __attribute__((section(".d0")));
 char secret[8] __attribute__((section(".d1"))) = " FLAG{}\0";
-
-void place_flag()
-{
-    strncpy(secret, "FLAG{1}\0", 8);
-}
+//Sollte bei accident sein
 
 int main()
 {
@@ -22,11 +18,12 @@ int main()
     if (len > 8)
     {
         printf("Too long!\n");
+        return 0;
     } else {
         strncpy(input, input_tmp, 8);
     }
-
-    place_flag();
+    
+    strncpy(secret, "FLAG{1}\0", 8); //place flag
 
     printf("You typed in:");
     printf("%s", input);

@@ -1,7 +1,7 @@
 all: clean main
 
 main:
-	gcc -Wall -Wextra -o main libaudiosynth/lib/portsf.c libaudiosynth/lib/ieee80.c -lm src/*.c
+	gcc -Wall -Wextra -o main src/main.c src/synth.c src/base64.c
 
 clean:
 	-rm main
