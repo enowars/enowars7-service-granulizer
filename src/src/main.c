@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "synth.h"
 #include "base64.h"
@@ -12,20 +14,21 @@
 
 #define WAVE_HEADER_OFFSET 0x44
 
+//Flag for debugging, forces the creation of a new clean setup when service is started
+#define FORCE_NEW_SETUP false
+
+#define MAX_LEN_USER_FILE 65536
+char user_file_content[MAX_LEN_USER_FILE];
+
 typedef struct granular_info {
 	int num_samples;
 	int* order_samples;
 	int* order_timelens;
 } granular_info;
 
-void init()
-{
-	srand(time(NULL)); //create random seed
-}
-
 char* ask(const char* prompt)
 {
-	printf("%s\n", prompt);
+	printf("%s", prompt);
 
 	static char buf[2048];
 	char *tok;
@@ -39,6 +42,187 @@ char* ask(const char* prompt)
 
 	return buf;
 }
+
+void init()
+{
+	srand(time(NULL)); //create random seed
+}
+
+
+/**
+ * Perform setup of service if the service does not exist yet.
+ *
+ * Creates users-info.txt
+ * Deletes users/ directory if it exist
+ * Creates users/ directory
+ *
+ */
+void setup_service()
+{
+	FILE* fp = fopen("users-info.txt", "r");
+	
+	if (fp != NULL && !FORCE_NEW_SETUP)
+	{ //file already exist, do not perform setup
+		fclose(fp);
+		return;
+	}
+	//file doesn't exist, fclose is not necessary then
+	
+	//create empty file
+	fp = fopen("users-info.txt", "w");
+	fclose(fp);
+
+	//delete users/ directory if it exist
+	system("rm -rf users/");
+
+	//create users/ directory
+	int res = mkdir("users", 0777);
+
+}
+
+/*
+ *
+ * Read users-info.txt into user_file_content array
+ *
+ * @return 	0 is success
+			1 if file couldn't be opened
+			2 error reading file
+ */
+int load_user_file()
+{
+	FILE* fp = fopen("users-info.txt", "r");
+	if (!fp)
+	{
+		printf("couldnt open file\n");
+		return 1; //error
+	}
+	int len = fread(user_file_content, MAX_LEN_USER_FILE, 1, fp);
+	if (len == 0 && ferror(fp))
+	{
+		printf("error reading file\n");
+		return 2;
+	}
+
+	fclose(fp);
+	
+	printf("Info, loaded file: %s\n", user_file_content);
+
+	return 0;
+}
+
+bool exist_username(char* username_in)
+{
+
+	char delimiter[] = ";";
+	char delimiter_details[] = ":";
+	char* ptr;
+
+	//USER:PASSWORD:PERSONAL_INFO
+	if (!user_file_content) return false; //if no users exist return false
+
+	char* user_file_content_cpy = strdup(user_file_content);
+	do { //parse each line
+		
+		user_file_content_cpy = strtok(user_file_content_cpy, delimiter);
+		char* ptr_cpy = strdup(user_file_content_cpy);
+		
+		char* username 	= strtok(ptr_cpy, delimiter_details);
+		assert(username);
+		char* pwd 		= strtok(ptr_cpy, delimiter_details);
+		assert(pwd);
+		char* details 	= strtok(ptr_cpy, delimiter_details);
+		assert(details);
+
+		printf("parsed username %s\n", username);
+		printf("in comparison with %s\n", username_in);
+
+		if (!strcmp(username, username_in))
+		{
+			return true;
+		}
+
+	} while (ptr);
+
+	return false;
+}
+
+int add_user(char* username, char* pwd, char* details)
+{	
+	//open file and append user infos
+	FILE* fp = fopen("users-info.txt", "a");
+	if (!fp)
+	{
+		printf("couldnt open file\n");
+		return 1; //error
+	}
+	int len = fwrite(username, strlen(username), 1, fp);
+	if (len < 1)
+	{
+		printf("error writing file: %i\n", len);
+		return 2;
+	}
+	len = fwrite(":", 1, 1, fp);
+	if (len < 1)
+	{
+		printf("error writing file: %i\n", len);
+		return 2;
+	}
+	len = fwrite(pwd, strlen(pwd), 1, fp);
+	if (len < 1)
+	{
+		printf("error writing file: %i\n", len);
+		return 2;
+	}
+	len = fwrite(":", 1, 1, fp);
+	if (len < 1)
+	{
+		printf("error writing file: %i\n", len);
+		return 2;
+	}
+	len = fwrite(details, strlen(details), 1, fp);
+	if (len < 1)
+	{
+		printf("error writing file: %i\n", len);
+		return 2;
+	}
+	len = fwrite(";", 1, 1, fp);
+	if (len < 1)
+	{
+		printf("error writing file: %i\n", len);
+		return 2;
+	}
+
+
+	fclose(fp);
+	return 0;
+}
+
+void login()
+{
+	return;
+}
+
+void reg()
+{
+	char* username  = ask("Username: ");
+	char* password	= ask("Password: ");
+	char* details 	= ask("Please share some details about yourself (will be privately stored in your account): ");
+
+	//check if username does not exist
+	load_user_file(); //load current user file
+	bool exist = exist_username(username);
+	if (exist)
+	{
+		printf("user already exist!\n");
+	} else {
+		add_user(username, password, details);
+		printf("ok\n");
+	}
+
+	return;
+}
+
+
 
 void print_granular_info(granular_info* info)
 {
@@ -184,12 +368,27 @@ void upload_wav_file_call()
 
 int main()
 {
+	setup_service();
+	
+	
+	char* in = ask("do you want to login (l) or register (r)?\n >");
+	if (strcmp(in, "register\n") || strcmp(in, "r\n"))
+	{
+		reg();
+	} else if (strcmp(in, "login\n") || strcmp(in, "l\n"))
+	{
+		login();
+	}
+	exit(0);
+
 	init();
 
 	struct {
 		const char *name;
 		void (*func)();
 	} cmds[] = {
+		{ "login\n", login },
+		{ "register\n", reg },
 		{ "upload wav\n", upload_wav_file_call },
 		{ "synth\n", synth_file_call }
 		/*{ "users", api_list_users },
@@ -203,10 +402,8 @@ int main()
 
 	printf("Hello synthy!\n");
 	
-	//testcase, suppose the user already logged in
-	char* user = "admin\0";
 
-	printf("Thanks for logging in as '%s'\n", user);
+	//printf("Thanks for logging in as '%s'\n", user);
 	printf("What do you wanna do?\n > ");
 	
 	char cmd[32];
