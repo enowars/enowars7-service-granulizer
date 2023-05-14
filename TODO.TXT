@@ -1,5 +1,17 @@
 Service:
-    reuse old synth code
-    wave builder
-    filter_function
+    register function
+        creates folder for user
+        writes info to user.txt
+    login function
+        checks user.txt and validate / cancel connection
+    (read all data from file in vuln buffer)
+
+    about me
+        prints own user info
+
+    upload wav  -> temp.wav
+    upload pcm  -> temp.pcm
+    synth pcm
+    synth wav
+        same as pcm
     
