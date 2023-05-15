@@ -101,7 +101,6 @@ bool exist_username(char* username_in)
 
 int add_user_folder(char* username)
 {
-
     //remove user folder for clean beginning
     char command[64] = "rm -rf users/";
     strcat(command, username);

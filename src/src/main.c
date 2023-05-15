@@ -19,6 +19,8 @@
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
 
+char* current_user;
+
 char* ask(const char* prompt)
 {
 	printf("%s", prompt);
@@ -75,19 +77,25 @@ void setup_service()
 
 void login()
 {
-	char* username  = ask("Username: ");
-	char* password	= ask("Password: ");
+	char *username, *password;
+
+	char* username_tmp = ask("Username: ");
+	username = strdup(username_tmp);
+
+	char* password_tmp = ask("Password: ");
+	password = strdup(password_tmp);
+	
 	printf("Checking %s with %s\n", username, password);
 
 	load_user_file(); //load current user file
 	if (exist_username_with_password(username, password))
 	{
 		printf("Welcome %s!\n", username);
+		current_user = username;
 	} else {
 		printf("Wrong password\n");
 		exit(0);
 	}
-	return;
 }
 
 void reg()
@@ -155,15 +163,17 @@ void synth_file_call()
 	print_granular_info(info);
 }
 
+
+
 void upload_wav_file_call()
 {
-	char* file_name = ask("Enter file name for new .wav file: ");
-	if (!file_ends_with(file_name, ".wav"))
+	char* file_name_in = ask("Enter file name for new .wav file: ");
+	if (!file_ends_with(file_name_in, ".wav"))
 	{
 		printf("File has to end with .wav\n");
 		return;
 	}
-	if (path_contains_illegal_chars(file_name))
+	if (path_contains_illegal_chars(file_name_in))
 	{
 		printf("File name contains illegal characters\n");
 		return;
@@ -183,17 +193,25 @@ void upload_wav_file_call()
 		printf("Error parsing the b64\n");
 		return 1;
 	}
+	
+	//build complete filepath with name
+	char file_name_complete[128];
+	strcpy(file_name_complete, "users/");
+	strcat(file_name_complete, current_user);
+	strcat(file_name_complete, "/");
+	strcat(file_name_complete, file_name_in);
 
-	FILE* fp = fopen("output.wav", "wb");
+	FILE* fp = fopen(file_name_complete, "w");
 	if (!fp)
 	{
 		perror("fopen");
-		return 1;
+		return;
 	}
 
 	fwrite(input, 1, len, fp);
 	fclose(fp);
 }
+
 
 
 
