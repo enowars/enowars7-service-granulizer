@@ -1,5 +1,15 @@
-#ifndef _SYNTH_H
-#define _SYNTH_H
+#ifndef _GRANULAR_H
+#define _GRANULAR_H
+
+typedef struct granular_info {
+	int num_samples;
+	int* order_samples;
+	int* order_timelens;
+} granular_info;
+
+void print_granular_info(granular_info* info);
+
+granular_info* granulize(char* buf, int buf_len);
 
 /**
  * @param in_b64 base64 encoded string for input file
