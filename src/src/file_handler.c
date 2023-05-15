@@ -21,23 +21,6 @@ int read_wav(char* file_name, char** p_data)
     
     float* buffer = malloc(totalNumSamples * 4);
     int samplesRead = tinywav_read_f(&tw, buffer, totalNumSamples);
-/*
-    while (samplesProcessed < totalNumSamples) {
-        printf("SAMPLE\n");
-        float buffer[NUM_CHANNELS * BLOCK_SIZE];
-        int16_t buffer2[NUM_CHANNELS * BLOCK_SIZE];
-        int samplesRead = tinywav_read_f(&tw, buffer, tw.numFramesInHeader);
-
-        samplesProcessed += samplesRead * NUM_CHANNELS;
-        printf("Read %i\n", samplesProcessed);
-        //convert to int
-        for (int i=0; i< BLOCK_SIZE*NUM_CHANNELS;i++)
-        {
-            buffer2[i] = (volatile int32_t *) &buffer[i];
-            printf("%i ", buffer2[i]);
-        }
-        printf("\n");
-    }*/
 
     tinywav_close_read(&tw);
     

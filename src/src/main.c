@@ -250,10 +250,14 @@ int main()
 {
 	char *ptr;
 	int len = read_wav("example_saw.wav", &ptr);
-	printf("buffer outer 0x%x\n", ptr);
-	//write wav back:
+	
+	char p_buf, *new_sample;
+	int out_len;
 
-	write_wav("saw_out.wav", ptr, len);
+	//write wav back:
+	//granulize(ptr, len, &new_sample, &out_len);
+
+	write_wav("saw_out.wav", new_sample, out_len);
 
 	//current_user = "a\0";
 	//synth_file_call();
