@@ -1,6 +1,26 @@
 #include "file_handler.h"
 
 #include <string.h>
+#include <stdlib.h>
+#include "tinywav.h"
+
+/**
+ * Reads all data from wav file from the given file_name. 
+ */
+char* read_wav(char* file_name)
+{ //TODO
+    TinyWav tw;
+    tinywav_open_read(&tw, file_name, TW_INLINE); //SPLIT for each channel in seperate buffer
+    tw.sampFmt = TW_INT16;
+
+    const int NUM_CHANNELS = 1;
+    const int BLOCK_SIZE = 65536;
+
+    float* samplePtrs[1];
+    
+    tinywav_read_f(&tw, samplePtrs, 1);
+
+}
 
 /**
  *
@@ -10,7 +30,7 @@
 bool file_ends_with(char* str, char* ending)
 {
     if (!str || !ending) return false;
-    
+
 	char *dot = strrchr(str, '.');
 	if (dot)
     {

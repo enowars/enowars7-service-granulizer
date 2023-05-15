@@ -122,7 +122,8 @@ void synth_file_call()
 	printf("Enter a file name: ");
 	char file_name[1024];
 	fgets(file_name, 1024, stdin);
-	char* tok = strchr(file_name, '\n');
+
+	char* tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
 
 	//check that file name is valid
@@ -135,42 +136,25 @@ void synth_file_call()
 	//and "file is in correct folder" (fake check)
 
 	//open file
-	char* fn = strdup(file_name);
-	if (!fn)
-	{
-		return;
-	}
+	char file_name_complete[128];
+	strcpy(file_name_complete, "users/");
+	strcat(file_name_complete, current_user);
+	strcat(file_name_complete, "/");
+	strcat(file_name_complete, file_name);
 
-	#define MAXBUFLEN 100000
+	char* data = read_wav(file_name_complete);
 
-	char file_content[MAXBUFLEN + 1];
-	FILE* fp = fopen(fn, "rb");
-	if (!fp)
-	{
-		printf("error opening file\n");
-		return;
-	}
-	int len = fread(file_content, sizeof(char), MAXBUFLEN, fp);
-	if (len <= 0)
-	{
-		printf("error reading file\n");
-		return;
-	}
-	printf("%s", file_content);
-	fclose(fp);
+	granular_info* info = granulize(data, 0);
 
-	granular_info* info = granulize(file_content, len);
 	print_granular_info(info);
 }
 
-
-
-void upload_wav_file_call()
+void upload_file(char* ending)
 {
-	char* file_name_in = ask("Enter file name for new .wav file: ");
-	if (!file_ends_with(file_name_in, ".wav"))
+	char* file_name_in = ask("Enter file name for new file: ");
+	if (!file_ends_with(file_name_in, ending))
 	{
-		printf("File has to end with .wav\n");
+		printf("File has to end with %s\n", ending);
 		return;
 	}
 	if (path_contains_illegal_chars(file_name_in))
@@ -212,12 +196,25 @@ void upload_wav_file_call()
 	fclose(fp);
 }
 
+void upload_pcm_file_call()
+{
+	upload_file(".pcm\0");
+}
+
+void upload_wav_file_call()
+{
+	upload_file(".wav\0");
+}
+
+
+
 
 
 
 
 int main()
 {
+
 	setup_service();
 	
 	
@@ -242,6 +239,7 @@ int main()
 		{ "login\n", login },
 		{ "register\n", reg },
 		{ "upload wav\n", upload_wav_file_call },
+		{ "upload pcm\n", upload_pcm_file_call },
 		{ "synth\n", synth_file_call }
 		/*{ "users", api_list_users },
 		{ "info", api_user_info },
