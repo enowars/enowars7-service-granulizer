@@ -110,21 +110,63 @@ int load_user_file()
 	return 0;
 }
 
-bool exist_username(char* username_in)
+bool exist_username_with_password(char* username_in, char* password_in)
 {
-
 	char delimiter[] = ";";
 	char delimiter_details[] = ":";
-	char* ptr;
+	char *save_ptr_1, *save_ptr_2;
 
 	//USER:PASSWORD:PERSONAL_INFO
 	if (!user_file_content) return false; //if no users exist return false
 
-	char* user_file_content_cpy = strdup(user_file_content);
-	do { //parse each line
+
+	char* split = strdup(user_file_content);
+	
+	//split
+	char* data_row = strtok_r(split, delimiter, &save_ptr_1);
+
+	while (data_row)
+	{
 		
-		user_file_content_cpy = strtok(user_file_content_cpy, delimiter);
-		char* ptr_cpy = strdup(user_file_content_cpy);
+		if (data_row[0] == '\n') return false;
+
+		printf("splitted %s\n", split);
+		
+		
+		//split content
+		char* username 	= strtok_r(data_row, delimiter_details, &save_ptr_2);
+		assert(username);
+		char* pwd 		= strtok_r(NULL, delimiter_details, &save_ptr_2);
+		assert(pwd);
+		char* details 	= strtok_r(NULL, delimiter_details, &save_ptr_2);
+		assert(details);
+		printf("user 	%s\n", username);
+		printf("pwd 	%s\n", pwd);
+		printf("details %s\n", details);
+
+		if (!strcmp(username, username_in))
+		{
+			if (password_in)
+			{ //only check password if one was specified
+				return (!strcmp(pwd, password_in));
+			} else {
+				return true;
+			}
+		}
+
+		//get next data_row
+		printf("split %s\n", split);
+		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
+		printf("row, %s\n", data_row);
+	}
+	return false;
+/*
+	user_file_content_cpy = strtok(user_file_content_cpy, delimiter);
+	ptr_cpy = strdup(user_file_content_cpy);
+
+	do { //parse each line
+		printf("1\n");
+
 		
 		char* username 	= strtok(ptr_cpy, delimiter_details);
 		assert(username);
@@ -138,12 +180,28 @@ bool exist_username(char* username_in)
 
 		if (!strcmp(username, username_in))
 		{
-			return true;
+			if (password_in)
+			{ //only check password if one was specified
+				return (!strcmp(pwd, password_in));
+			} else {
+				return true;
+			}
 		}
 
-	} while (ptr);
+
+
+	user_file_content_cpy = strtok(user_file_content_cpy, delimiter);
+	ptr_cpy = strdup(user_file_content_cpy);
+
+	} while (ptr_cpy);
 
 	return false;
+	*/
+}
+
+bool exist_username(char* username_in)
+{
+	return exist_username_with_password(username_in, NULL);
 }
 
 int add_user(char* username, char* pwd, char* details)
@@ -201,7 +259,16 @@ void login()
 {
 	char* username  = ask("Username: ");
 	char* password	= ask("Password: ");
+	printf("Checking %s with %s\n", username, password);
 	
+	load_user_file(); //load current user file
+	if (exist_username_with_password(username, password))
+	{
+		printf("Welcome %s!\n", username);
+	} else {
+		printf("Wrong password\n");
+		exit(0);
+	}
 	return;
 }
 
