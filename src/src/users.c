@@ -32,8 +32,6 @@ int load_user_file()
 
 	fclose(fp);
 	
-	printf("Info, loaded file: %s\n", user_file_content);
-
 	return 0;
 }
 
@@ -57,11 +55,7 @@ bool exist_username_with_password(char* username_in, char* password_in)
 
 	while (data_row)
 	{
-		
 		if (data_row[0] == '\n') return false;
-
-		printf("splitted %s\n", split);
-		
 		
 		//split content
 		char* username 	= strtok_r(data_row, delimiter_details, &save_ptr_2);
@@ -70,24 +64,25 @@ bool exist_username_with_password(char* username_in, char* password_in)
 		assert(pwd);
 		char* details 	= strtok_r(NULL, delimiter_details, &save_ptr_2);
 		assert(details);
-		printf("user 	%s\n", username);
-		printf("pwd 	%s\n", pwd);
-		printf("details %s\n", details);
-
+		
+		//printf("%s, %s, %s\n", username, pwd, details);
+		
 		if (!strcmp(username, username_in))
 		{
 			if (password_in)
 			{ //only check password if one was specified
-				return (!strcmp(pwd, password_in));
+				if (!strcmp(pwd, password_in))
+				{
+					return true;
+				}
 			} else {
 				return true;
 			}
 		}
 
 		//get next data_row
-		printf("split %s\n", split);
 		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
-		printf("row, %s\n", data_row);
+		//printf("next data row %s\n", data_row);
 	}
 	return false;
 }
@@ -159,7 +154,7 @@ int add_user(char* username, char* pwd, char* details)
 		printf("error writing file: %i\n", len);
 		return 2;
 	}
-	len = fwrite(";\n", 2, 1, fp);
+	len = fwrite(";", 1, 1, fp);
 	if (len < 1)
 	{
 		printf("error writing file: %i\n", len);

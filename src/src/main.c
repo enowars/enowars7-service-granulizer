@@ -80,7 +80,7 @@ void setup_service()
 	} 
 }
 
-void login()
+bool login()
 {
 	char *username, *password;
 
@@ -90,35 +90,46 @@ void login()
 	char* password_tmp = ask("Password: ");
 	password = strdup(password_tmp);
 	
-	printf("Checking %s with %s\n", username, password);
-
 	load_user_file(); //load current user file
 	if (exist_username_with_password(username, password))
 	{
-		printf("Welcome %s!\n", username);
-		current_user = username;
-	} else {
-		printf("Wrong password\n");
-		exit(0);
+		printf("Welcome \'%s\'!\n", username);
+		current_user = strdup(username);
+		free(username);
+		free(password);
+		return true;
 	}
+	
+	printf("Wrong password\n");
+	free(username);
+	free(password);
+	
+	return false;
 }
 
-void reg()
+void register_user()
 {
 	char* username  = ask("Username: ");
+	char* username_cpy = strdup(username);
 	char* password	= ask("Password: ");
+	char* password_cpy = strdup(password);
 	char* details 	= ask("Please share some details about yourself (will be privately stored in your account): ");
+	char* details_cpy = strdup(details);
 
 	//check if username does not exist
 	load_user_file(); //load current user file
-	bool exist = exist_username(username);
+	bool exist = exist_username(username_cpy);
 	if (exist)
 	{
 		printf("user already exist!\n");
 	} else {
-		add_user(username, password, details);
+		add_user(username_cpy, password_cpy, details_cpy);
 		printf("ok\n");
 	}
+	free(username_cpy);
+	free(password_cpy);
+	free(details_cpy);
+
 }
 
 
@@ -302,37 +313,37 @@ void granulize_info_call()
 	}
 }
 
-
-
+void help_call()
+{
+	printf("upload wav - uploads a .wav file into own profile, encoded as base64\n");
+	printf("upload pcm - uploads a .pcm (pulse-code modulation) file into own profile, encoded as base64\n");
+	printf("download wav - downloads a .wav file from own profile, encoded as base64\n");
+	printf("download pcm - downloads a .pcm file from own profile, encoded as base64\n");
+	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
+	printf("granulize info - more details about last granulization process\n");
+	printf("help - this prompt\n\n");
+}
 
 int main()
-{
-	//char *ptr;
-	//int len = read_wav("example_saw.wav", &ptr);
-	
-	//char p_buf, *new_sample;
-	//int out_len;
-
-	//write wav back:
-	//granulize(ptr, len, &new_sample, &out_len);
-
-	//write_wav("saw_out.wav", new_sample, out_len);
-
-	//current_user = "a\0";
-	//synth_file_call();
-	
+{	
 	setup_service();
-	
-	char* in = ask("do you want to login (l) or register (r)?\n >");
-	if (!strcmp(in, "register") || !strcmp(in, "r"))
+	while (1)
 	{
-		reg();
-	} else if (!strcmp(in, "login") || !strcmp(in, "l"))
-	{
-		login();
-	} else {
-		printf("Please enter login or register\n");
-		exit(0);
+		char* in = ask("Hello! Do you want to login (l) or register (r)?\n >");
+		if (!strcmp(in, "register") || !strcmp(in, "r"))
+		{
+			register_user();
+		} else if (!strcmp(in, "login") || !strcmp(in, "l"))
+		{
+			bool worked = login();
+			if (worked)
+			{
+				break; //enter main loop
+			}
+		} else {
+			printf("Please enter login or register\n");
+			exit(0);
+		}
 	}
 
 	init();
@@ -341,29 +352,16 @@ int main()
 		const char *name;
 		void (*func)();
 	} cmds[] = {
-		{ "login\n", login },
-		{ "register\n", reg },
 		{ "upload wav\n", upload_wav_file_call },
 		{ "upload pcm\n", upload_pcm_file_call },
 		{ "download wav\n", download_wav_file_call },
 		{ "download pcm\n", download_pcm_file_call },
 		{ "granulize info\n", granulize_info_call },
-		{ "granulize\n", synth_file_call }
-		/*{ "users", api_list_users },
-		{ "info", api_user_info },
-		{ "login", api_login },
-		{ "post", api_create_post },
-		{ "posts", api_list_posts },
-		{ "help", api_help },
-		*/
+		{ "granulize\n", synth_file_call },
+		{ "help\n", help_call }
 	};
 
-	
 	char cmd[32];
-
-
-
-
 	while (1)
 	{
 		printf("What do you wanna do?\n > ");
@@ -379,7 +377,7 @@ int main()
 
 		if (i == ARRSIZE(cmds))
 		{
-			printf("Unknown command: %s\n", cmd);
+			printf("Unknown command: %s Enter help for helping prompt\n", cmd);
 		}
 	}
 }
