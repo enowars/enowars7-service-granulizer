@@ -99,7 +99,27 @@ bool exist_username(char* username_in)
 }
 
 
+int add_user_folder(char* username)
+{
 
+    //remove user folder for clean beginning
+    char command[64] = "rm -rf users/";
+    strcat(command, username);
+    strcat(command, "/");
+    system(command);
+    
+    //create users folder
+    char command2[64] = "mkdir users/";
+    strcat(command2, username);
+    strcat(command2, "/");
+    system(command2);
+}
+
+/**
+ * Register the given user.
+ * Adds users info to users-info.txt, creates user folder
+ *
+ */
 int add_user(char* username, char* pwd, char* details)
 {	
 	//open file and append user infos
@@ -139,14 +159,15 @@ int add_user(char* username, char* pwd, char* details)
 		printf("error writing file: %i\n", len);
 		return 2;
 	}
-	len = fwrite(";", 1, 1, fp);
+	len = fwrite(";\n", 2, 1, fp);
 	if (len < 1)
 	{
 		printf("error writing file: %i\n", len);
 		return 2;
 	}
-
-
 	fclose(fp);
-	return 0;
+	
+    add_user_folder(username);
+
+    return 0;
 }

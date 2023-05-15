@@ -157,6 +157,18 @@ void synth_file_call()
 
 void upload_wav_file_call()
 {
+	char* file_name = ask("Enter file name for new .wav file: ");
+	if (!file_ends_with(file_name, ".wav"))
+	{
+		printf("File has to end with .wav\n");
+		return;
+	}
+	if (path_contains_illegal_chars(file_name))
+	{
+		printf("File name contains illegal characters\n");
+		return;
+	}
+
 	printf("Enter base64 encoded wave file, maximum size 1024 bytes:\n");
 	char base64encoded[1024];
 	fgets(base64encoded, 1024, stdin);
