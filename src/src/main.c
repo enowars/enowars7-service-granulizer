@@ -126,6 +126,8 @@ void synth_file_call()
 
 	char* tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
+	
+	char* file_name_orig = strdup(file_name);
 
 	//check that file name is valid
 	char *dot = strrchr(file_name, '.');
@@ -161,7 +163,18 @@ void synth_file_call()
 		granular_info* info = granulize(&p_buf, len, &new_sample, &new_sample_len);
 
 		last_granular_info = info;
-		
+
+		//write data to users folder
+		memset(file_name_complete, 0, 128);
+		strcpy(file_name_complete, "users/");
+		strcat(file_name_complete, current_user);
+		strcat(file_name_complete, "/");
+		strcat(file_name_complete, "granulized.");
+		strcat(file_name_complete, file_name_orig);
+		strcat(file_name_complete, "\0");
+		printf("write to file %s\n", file_name_complete);
+		int res = write_pcm(file_name_complete, new_sample, new_sample_len);
+
 		//int res = write_pcm("output.pcm", new_sample, new_sample_len);
 	}
 
