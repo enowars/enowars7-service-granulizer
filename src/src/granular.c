@@ -22,7 +22,8 @@ void shuffle(int *array, size_t n)
 
 int scale_array(char* buf_in, char* buf_out, int buf_in_len, int factor)
 {
-    if (factor <= 1) {
+    //printf("buf_in_len: %i, factor: %i\n", buf_in_len, factor);
+    if (factor < 1) {
         return -1;
     }
 
@@ -31,6 +32,7 @@ int scale_array(char* buf_in, char* buf_out, int buf_in_len, int factor)
     for (int i=0; i < buf_in_len; i++)
     {
         memset(buf_out + i * factor, buf_in[i], factor);
+        //printf("Set char %c (%i) number of times: %i\n", buf_in[i], buf_in[i], buf_in_len);
     }
 
     return factor * buf_in_len;
@@ -87,14 +89,14 @@ granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out)
         {
             grains_len_here = buf_len - (grains_len * (num_grains - 1));
         }
-        printf("Grains len here %i for %i\n", grains_len_here, i);
+        //printf("Grains len here %i for %i\n", grains_len_here, i);
         new_sample_len += grains_len_here * info->order_timelens[i]; //calculate new sample size
     }
     
     //granular info is created, now granulize
     
     char* new_sample = calloc(new_sample_len, sizeof(char));
-    printf("new sample len %i\n", new_sample_len);
+    //printf("new sample len %i\n", new_sample_len);
     char* ptr = new_sample;
     int index = 0;
     int next_index_for_writing = 0;
@@ -109,7 +111,7 @@ granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out)
         if (info->order_samples[i] == (num_grains - 1))
         { //special case for last grain, this has a different length
             grains_len_here = buf_len - (grains_len * (num_grains -1));
-            printf("special grain len: %i\n", grains_len_here);
+            //printf("special grain len: %i\n", grains_len_here);
         }
         int res = scale_array(buf + index, &buf_new, grains_len_here, info->order_timelens[i]);
         
