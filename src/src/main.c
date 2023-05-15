@@ -73,7 +73,11 @@ void setup_service()
 
 	//create users/ directory
 	int res = mkdir("users", 0777);
-
+	
+	if (res)
+	{
+		//TODO proper checking
+	} 
 }
 
 void login()
@@ -153,14 +157,16 @@ void synth_file_call()
 		printf("Wav handler not yet implemented\n");
 	} else if (!strcmp(dot, ".pcm"))
 	{
-		printf("read .pcm file\n");
-		char p_buf, *new_sample;
-		int new_sample_len;
+		printf("read .pcm file %s\n", file_name_complete);
+		char *p_buf;
+		
 		int len = read_pcm(file_name_complete, &p_buf);
-		printf("read %s\n", &p_buf);
+		printf("read %s\n", p_buf);
 
 		//handle data:
-		granular_info* info = granulize(&p_buf, len, &new_sample, &new_sample_len);
+		char *new_sample;
+		int new_sample_len;
+		granular_info* info = granulize(p_buf, len, &new_sample, &new_sample_len);
 
 		last_granular_info = info;
 
@@ -174,13 +180,23 @@ void synth_file_call()
 		strcat(file_name_complete, "\0");
 		printf("write to file %s\n", file_name_complete);
 		int res = write_pcm(file_name_complete, new_sample, new_sample_len);
+		if (res)
+		{
+			//TODO proper error checking
+		}
+		
+	}	
+}
 
-		//int res = write_pcm("output.pcm", new_sample, new_sample_len);
-	}
-
-
-
-	
+char* build_user_path(const char* file_name)
+{
+	static char string[1024];
+	memset(string, 0, 1024);
+	strcpy(string, "users/");
+	strcat(string, current_user);
+	strcat(string, "/");
+	strcat(string, file_name);
+	return string;
 }
 
 void upload_file(char* ending)
@@ -209,7 +225,7 @@ void upload_file(char* ending)
 	if (len <= 0)
 	{
 		printf("Error parsing the b64\n");
-		return 1;
+		return;
 	}
 	
 	//build complete filepath with name
@@ -240,31 +256,72 @@ void upload_wav_file_call()
 	upload_file(".wav\0");
 }
 
+void download_wav_file_call()
+{
+	printf("TODO\n");
+}
 
+void download_pcm_file_call()
+{
+	char* file_name = ask("Filename: ");
+	
+	//sanitize
+	if (path_contains_illegal_chars(file_name))
+	{
+		printf("Error - filename contains illegal character\n");
+		return;
+	}
+	
+	
+	//build path with filename
+	char* path = build_user_path(file_name);
+	printf("read file from path %s\n", path);
+	char* path_cpy = strdup(path);
+	
 
+	//get file content
+	char *p_buf;
+	int len = read_pcm(path_cpy, &p_buf);
+	printf("File: %s\n", p_buf);
+	
+
+	//b64 encode
+	char encoded[20640];
+	len = Base64encode(encoded, p_buf, len);
+	printf("File: \n%s\n", encoded);
+
+}
+
+void granulize_info_call()
+{
+	if (last_granular_info)
+	{
+		print_granular_info(last_granular_info);
+	} else {
+		printf("No last granular infos to print\n");
+	}
+}
 
 
 
 
 int main()
 {
-	char *ptr;
-	int len = read_wav("example_saw.wav", &ptr);
+	//char *ptr;
+	//int len = read_wav("example_saw.wav", &ptr);
 	
-	char p_buf, *new_sample;
-	int out_len;
+	//char p_buf, *new_sample;
+	//int out_len;
 
 	//write wav back:
 	//granulize(ptr, len, &new_sample, &out_len);
 
-	write_wav("saw_out.wav", new_sample, out_len);
+	//write_wav("saw_out.wav", new_sample, out_len);
 
 	//current_user = "a\0";
 	//synth_file_call();
-	exit(0);
-
+	
 	setup_service();
-
 	
 	char* in = ask("do you want to login (l) or register (r)?\n >");
 	if (!strcmp(in, "register") || !strcmp(in, "r"))
@@ -288,6 +345,9 @@ int main()
 		{ "register\n", reg },
 		{ "upload wav\n", upload_wav_file_call },
 		{ "upload pcm\n", upload_pcm_file_call },
+		{ "download wav\n", download_wav_file_call },
+		{ "download pcm\n", download_pcm_file_call },
+		{ "granulize info\n", granulize_info_call },
 		{ "granulize\n", synth_file_call }
 		/*{ "users", api_list_users },
 		{ "info", api_user_info },
@@ -298,22 +358,28 @@ int main()
 		*/
 	};
 
-	printf("What do you wanna do?\n > ");
 	
 	char cmd[32];
-	
-	fgets(cmd, 32, stdin);
 
 
-	int i;
-	for (i = 0; i < ARRSIZE(cmds); i++) {
-		if (!strcmp(cmd, cmds[i].name)) {
-			cmds[i].func();
-			break;
+
+
+	while (1)
+	{
+		printf("What do you wanna do?\n > ");
+		fgets(cmd, 32, stdin);
+
+		int i;
+		for (i = 0; i < (int) ARRSIZE(cmds); i++) {
+			if (!strcmp(cmd, cmds[i].name)) {
+				cmds[i].func();
+				break;
+			}
+		}
+
+		if (i == ARRSIZE(cmds))
+		{
+			printf("Unknown command: %s\n", cmd);
 		}
 	}
-
-	if (i == ARRSIZE(cmds))
-		printf("Unknown command: %s\n", cmd);
-
 }

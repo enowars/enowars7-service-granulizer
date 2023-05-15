@@ -20,7 +20,7 @@ void shuffle(int *array, size_t n)
     }
 }
 
-int scale_array(char* buf_in, char* buf_out, int buf_in_len, int factor)
+int scale_array(char* buf_in, char** buf_out, int buf_in_len, int factor)
 {
     //printf("buf_in_len: %i, factor: %i\n", buf_in_len, factor);
     if (factor < 1) {
@@ -28,13 +28,14 @@ int scale_array(char* buf_in, char* buf_out, int buf_in_len, int factor)
     }
 
     //create new array which is "factor" bigger
-    *buf_out = malloc(buf_in_len * sizeof(char) * factor);
+    char *buf = malloc(buf_in_len * sizeof(char) * factor);
     for (int i=0; i < buf_in_len; i++)
     {
-        memset(buf_out + i * factor, buf_in[i], factor);
+        memset(buf + i * factor, buf_in[i], factor);
         //printf("Set char %c (%i) number of times: %i\n", buf_in[i], buf_in[i], buf_in_len);
     }
 
+    *buf_out = buf;
     return factor * buf_in_len;
 }
 
@@ -97,15 +98,14 @@ granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out)
     
     char* new_sample = calloc(new_sample_len, sizeof(char));
     //printf("new sample len %i\n", new_sample_len);
-    char* ptr = new_sample;
-    int index = 0;
+
     int next_index_for_writing = 0;
     for (int i=0; i < num_grains; i++)
     {
         //add grain
 
         //create new longer sample, scaled as wished by new timelength
-        char buf_new;
+        char* buf_new;
         int index = info->order_samples[i] * grains_len;
         int grains_len_here = grains_len;
         if (info->order_samples[i] == (num_grains - 1))
@@ -114,8 +114,12 @@ granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out)
             //printf("special grain len: %i\n", grains_len_here);
         }
         int res = scale_array(buf + index, &buf_new, grains_len_here, info->order_timelens[i]);
-        
-        memcpy(new_sample + next_index_for_writing, &buf_new, grains_len_here * info->order_timelens[i]);
+        //TODO proper error handling
+        if (res)
+        {
+
+        }
+        memcpy(new_sample + next_index_for_writing, buf_new, grains_len_here * info->order_timelens[i]);
         next_index_for_writing += grains_len_here * info->order_timelens[i];
         
     }

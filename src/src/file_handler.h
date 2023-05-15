@@ -5,7 +5,7 @@
 
 int read_wav(char* file_name, char** p_data);
 
-int read_pcm(char* file_name, char* p_data);
+int read_pcm(char* file_name, char** p_data);
 
 int write_pcm(char* file_name, char* p_data, int len);
 

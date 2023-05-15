@@ -46,7 +46,8 @@ bool exist_username_with_password(char* username_in, char* password_in)
 	char *save_ptr_1, *save_ptr_2;
 
 	//USER:PASSWORD:PERSONAL_INFO
-	if (!user_file_content) return false; //if no users exist return false
+	//TODO error checking
+	//if (!user_file_content) return false; //if no users exist return false
 
 
 	char* split = strdup(user_file_content);
@@ -99,7 +100,7 @@ bool exist_username(char* username_in)
 }
 
 
-int add_user_folder(char* username)
+void add_user_folder(char* username)
 {
     //remove user folder for clean beginning
     char command[64] = "rm -rf users/";
