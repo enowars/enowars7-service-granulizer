@@ -7,22 +7,43 @@
 /**
  * Reads all data from wav file from the given file_name. 
  */
-char* read_wav(char* file_name)
-{ //TODO
+int read_wav(char* file_name, char* p_data)
+{
     TinyWav tw;
-    tinywav_open_read(&tw, file_name, TW_INLINE); //SPLIT for each channel in seperate buffer
-    tw.sampFmt = TW_INT16;
+    tinywav_open_read(&tw, file_name, TW_INLINE); //SPLIT for each channel in separate buffer
 
     const int NUM_CHANNELS = 1;
-    const int BLOCK_SIZE = 65536;
-
-    float* samplePtrs[1];
+    const int BLOCK_SIZE = 512;
+    const int SAMPLE_RATE = 16000;
     
-    tinywav_read_f(&tw, samplePtrs, 1);
+    int samplesProcessed = 0;
+    int totalNumSamples = tw.numFramesInHeader;
+    
+    float* buffer = malloc(tw.numFramesInHeader);
+    int samplesRead = tinywav_read_f(&tw, buffer, tw.numFramesInHeader);
+/*
+    while (samplesProcessed < totalNumSamples) {
+        printf("SAMPLE\n");
+        float buffer[NUM_CHANNELS * BLOCK_SIZE];
+        int16_t buffer2[NUM_CHANNELS * BLOCK_SIZE];
+        int samplesRead = tinywav_read_f(&tw, buffer, tw.numFramesInHeader);
+
+        samplesProcessed += samplesRead * NUM_CHANNELS;
+        printf("Read %i\n", samplesProcessed);
+        //convert to int
+        for (int i=0; i< BLOCK_SIZE*NUM_CHANNELS;i++)
+        {
+            buffer2[i] = (volatile int32_t *) &buffer[i];
+            printf("%i ", buffer2[i]);
+        }
+        printf("\n");
+    }*/
+
+    tinywav_close_read(&tw);
 }
 
 /**
- * Reads all data from given file_name into p_data
+ * Reads all data from given file_name into *p_data
  * @param p_data return pointer to memory
  */
 int read_pcm(char* file_name, char* p_data)
@@ -54,6 +75,11 @@ int write_pcm(char* file_name, char* p_data, int len)
     fwrite(p_data, len, 1, f);
     fclose(f);
     return 0;
+}
+
+int write_wav(char* file_name, float* p_data, int len)
+{
+    
 }
 
 /**

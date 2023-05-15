@@ -3,11 +3,13 @@
 
 #include <stdbool.h>
 
-char* read_wav(char* file_name);
+int read_wav(char* file_name, char* p_data);
 
 int read_pcm(char* file_name, char* p_data);
 
 int write_pcm(char* file_name, char* p_data, int len);
+
+int write_wav(char* file_name, char* p_data, int len);
 
 bool file_ends_with(char* str, char* ending);
 

@@ -126,7 +126,7 @@ void synth_file_call()
 
 	char* tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
-	
+
 	char* file_name_orig = strdup(file_name);
 
 	//check that file name is valid
@@ -248,8 +248,12 @@ void upload_wav_file_call()
 
 int main()
 {
-	current_user = "a\0";
-	synth_file_call();
+	char ptr;
+	read_wav("example_saw.wav", &ptr);
+	printf("%p\n", ptr);
+
+	//current_user = "a\0";
+	//synth_file_call();
 	exit(0);
 
 	setup_service();
