@@ -42,6 +42,20 @@ int read_pcm(char* file_name, char* p_data)
     return (int) fsize;
 }
 
+int write_pcm(char* file_name, char* p_data, int len)
+{
+    
+    FILE* f = fopen(file_name, "wb");
+    if (!f)
+    {
+        printf("error opening file for writing\n");
+        return 1;
+    }
+    fwrite(p_data, len, 1, f);
+    fclose(f);
+    return 0;
+}
+
 /**
  *
  * Example call: file_ends_with(str_input, ".wav")

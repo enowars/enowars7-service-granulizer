@@ -3,3 +3,4 @@ main
 users
 users-info.txt
 *.wav
+*.pcm

@@ -9,7 +9,7 @@ typedef struct granular_info {
 
 void print_granular_info(granular_info* info);
 
-granular_info* granulize(char* buf, int buf_len);
+granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out);
 
 int synth_file(char* string, int len);
 

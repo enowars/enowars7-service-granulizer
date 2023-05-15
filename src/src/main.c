@@ -20,6 +20,7 @@
 #define FORCE_NEW_SETUP false
 
 char* current_user;
+granular_info* last_granular_info;
 
 char* ask(const char* prompt)
 {
@@ -151,15 +152,22 @@ void synth_file_call()
 	} else if (!strcmp(dot, ".pcm"))
 	{
 		printf("read .pcm file\n");
-		char p_buf;
+		char p_buf, *new_sample;
+		int new_sample_len;
 		int len = read_pcm(file_name_complete, &p_buf);
-		char* ptr = (char*) p_buf;
 		printf("read %s\n", &p_buf);
+
+		//handle data:
+		granular_info* info = granulize(&p_buf, len, &new_sample, &new_sample_len);
+
+		last_granular_info = info;
+		
+		//int res = write_pcm("output.pcm", new_sample, new_sample_len);
 	}
 
-	//granular_info* info = granulize(data, 0);
 
-	//print_granular_info(info);
+
+	
 }
 
 void upload_file(char* ending)
@@ -227,9 +235,12 @@ void upload_wav_file_call()
 
 int main()
 {
+	current_user = "a\0";
+	synth_file_call();
+	exit(0);
 
 	setup_service();
-	
+
 	
 	char* in = ask("do you want to login (l) or register (r)?\n >");
 	if (!strcmp(in, "register") || !strcmp(in, "r"))
