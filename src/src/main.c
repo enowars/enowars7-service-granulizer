@@ -128,25 +128,38 @@ void synth_file_call()
 
 	//check that file name is valid
 	char *dot = strrchr(file_name, '.');
-	if ( !dot || strcmp(dot, ".wav"))
+	if (!dot)
 	{
-		printf("file name has to end with .wav\n");
+		printf("File ending is missing\n");
+	}
+	if (strcmp(dot, ".wav") && strcmp(dot, ".pcm"))
+	{
+		printf("file has to end with .wav or .pcm\n");
 		return;
 	}
-	//and "file is in correct folder" (fake check)
-
-	//open file
+	
+	//build path
 	char file_name_complete[128];
 	strcpy(file_name_complete, "users/");
 	strcat(file_name_complete, current_user);
 	strcat(file_name_complete, "/");
 	strcat(file_name_complete, file_name);
 
-	char* data = read_wav(file_name_complete);
+	if (!strcmp(dot, ".wav"))
+	{ //wave handler
+		printf("Wav handler not yet implemented\n");
+	} else if (!strcmp(dot, ".pcm"))
+	{
+		printf("read .pcm file\n");
+		char p_buf;
+		int len = read_pcm(file_name_complete, &p_buf);
+		char* ptr = (char*) p_buf;
+		printf("read %s\n", &p_buf);
+	}
 
-	granular_info* info = granulize(data, 0);
+	//granular_info* info = granulize(data, 0);
 
-	print_granular_info(info);
+	//print_granular_info(info);
 }
 
 void upload_file(char* ending)
@@ -240,7 +253,7 @@ int main()
 		{ "register\n", reg },
 		{ "upload wav\n", upload_wav_file_call },
 		{ "upload pcm\n", upload_pcm_file_call },
-		{ "synth\n", synth_file_call }
+		{ "granulize\n", synth_file_call }
 		/*{ "users", api_list_users },
 		{ "info", api_user_info },
 		{ "login", api_login },

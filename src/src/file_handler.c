@@ -19,7 +19,27 @@ char* read_wav(char* file_name)
     float* samplePtrs[1];
     
     tinywav_read_f(&tw, samplePtrs, 1);
+}
 
+/**
+ * Reads all data from given file_name into p_data
+ * @param p_data return pointer to memory
+ */
+int read_pcm(char* file_name, char* p_data)
+{
+    //read in complete file
+    FILE* f = fopen(file_name, "rb");
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f); //get size
+    fseek(f, 0, SEEK_SET);  //go back to beginning
+
+    *p_data = malloc(fsize + 1);
+    fread(p_data, fsize, 1, f);
+    fclose(f);
+
+    p_data[fsize] = 0; //null terminate
+
+    return (int) fsize;
 }
 
 /**
