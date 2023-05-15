@@ -248,9 +248,12 @@ void upload_wav_file_call()
 
 int main()
 {
-	char ptr;
-	read_wav("example_saw.wav", &ptr);
-	printf("%p\n", ptr);
+	char *ptr;
+	int len = read_wav("example_saw.wav", &ptr);
+	printf("buffer outer 0x%x\n", ptr);
+	//write wav back:
+
+	write_wav("saw_out.wav", ptr, len);
 
 	//current_user = "a\0";
 	//synth_file_call();

@@ -7,7 +7,7 @@
 /**
  * Reads all data from wav file from the given file_name. 
  */
-int read_wav(char* file_name, char* p_data)
+int read_wav(char* file_name, char** p_data)
 {
     TinyWav tw;
     tinywav_open_read(&tw, file_name, TW_INLINE); //SPLIT for each channel in separate buffer
@@ -19,8 +19,8 @@ int read_wav(char* file_name, char* p_data)
     int samplesProcessed = 0;
     int totalNumSamples = tw.numFramesInHeader;
     
-    float* buffer = malloc(tw.numFramesInHeader);
-    int samplesRead = tinywav_read_f(&tw, buffer, tw.numFramesInHeader);
+    float* buffer = malloc(totalNumSamples * 4);
+    int samplesRead = tinywav_read_f(&tw, buffer, totalNumSamples);
 /*
     while (samplesProcessed < totalNumSamples) {
         printf("SAMPLE\n");
@@ -40,6 +40,10 @@ int read_wav(char* file_name, char* p_data)
     }*/
 
     tinywav_close_read(&tw);
+    
+    *p_data = buffer;
+    
+    return totalNumSamples;
 }
 
 /**
@@ -79,7 +83,13 @@ int write_pcm(char* file_name, char* p_data, int len)
 
 int write_wav(char* file_name, float* p_data, int len)
 {
-    
+    const int NUM_CHANNELS = 1;
+    const int SAMPLE_RATE = 16000;
+
+    TinyWav twWriter;
+    tinywav_open_write(&twWriter, NUM_CHANNELS, SAMPLE_RATE, TW_FLOAT32, TW_INLINE, file_name);
+    int samplesWritten = tinywav_write_f(&twWriter, p_data, len);
+    tinywav_close_write(&twWriter);
 }
 
 /**
