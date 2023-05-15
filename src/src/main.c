@@ -199,6 +199,9 @@ int add_user(char* username, char* pwd, char* details)
 
 void login()
 {
+	char* username  = ask("Username: ");
+	char* password	= ask("Password: ");
+	
 	return;
 }
 
@@ -372,12 +375,14 @@ int main()
 	
 	
 	char* in = ask("do you want to login (l) or register (r)?\n >");
-	if (strcmp(in, "register\n") || strcmp(in, "r\n"))
+	if (!strcmp(in, "register") || !strcmp(in, "r"))
 	{
 		reg();
-	} else if (strcmp(in, "login\n") || strcmp(in, "l\n"))
+	} else if (!strcmp(in, "login") || !strcmp(in, "l"))
 	{
 		login();
+	} else {
+		printf("Please enter login or register\n");
 	}
 	exit(0);
 
