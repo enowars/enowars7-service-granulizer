@@ -329,10 +329,22 @@ void help_call()
 
 int main()
 {	
+ printf("  _____ _____            _   _ _    _ _      _____ ____________ _____  \n");
+ printf(" / ____|  __ \\     /\\   | \\ | | |  | | |    |_   _|___  /  ____|  __ \\ \n");
+ printf("| |  __| |__) |   /  \\  |  \\| | |  | | |      | |    / /| |__  | |__) | \n");
+ printf("| | |_ |  _  /   / /\\ \\ | . ` | |  | | |      | |   / / |  __| |  _  / \n");
+ printf("| |__| | | \\ \\  / ____ \\| |\\  | |__| | |____ _| |_ / /__| |____| | \\ \\ \n");
+ printf(" \\_____|_|  \\_\\/_/    \\_\\_| \\_|\\____/|______|_____/_____|______|_|  \\_\\ \n");
+
+                                                                        
+
+	
+
+
 	setup_service();
 	while (1)
 	{
-		char* in = ask("Hello! Do you want to login (l) or register (r)?\n >");
+		char* in = ask("Hello! Do you want to login (l) or register (r)?\n >\0");
 		if (!strcmp(in, "register") || !strcmp(in, "r"))
 		{
 			register_user();
