@@ -55,7 +55,9 @@ void init()
  */
 void setup_service()
 {
-	FILE* fp = fopen("users-info.txt", "r");
+	add_user_base_folder();
+
+	FILE* fp = fopen("users/users-info.txt", "r");
 	
 	if (fp != NULL && !FORCE_NEW_SETUP)
 	{ //file already exist, do not perform setup
@@ -65,9 +67,10 @@ void setup_service()
 	//file doesn't exist, fclose is not necessary then
 	
 	//create empty file
-	fp = fopen("users-info.txt", "w");
+	fp = fopen("users/users-info.txt", "w");
 	fclose(fp);
 
+	/*
 	//delete users/ directory if it exist
 	system("rm -rf users/");
 
@@ -77,7 +80,7 @@ void setup_service()
 	if (res)
 	{
 		//TODO proper checking
-	} 
+	}*/ 
 }
 
 bool login()

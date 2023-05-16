@@ -1,0 +1,17 @@
+version: '2.1'
+services:
+  granulizer:
+    ulimits:
+      core:
+        hard: 0
+        soft: 0
+      nproc:
+        soft: 4000
+        hard: 4000
+    build: .
+    volumes:
+      - ./users/:/service/users:rw
+    ports:
+      - 2345:4321
+    mem_limit: 1G
+    memswap_limit: 2G

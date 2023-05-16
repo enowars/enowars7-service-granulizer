@@ -16,6 +16,8 @@
  */
 int load_user_file();
 
+void add_user_base_folder();
+
 bool exist_username_with_password(char* username_in, char* password_in);
 
 bool exist_username(char* username_in);

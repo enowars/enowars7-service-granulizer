@@ -17,7 +17,7 @@ char user_file_content[MAX_LEN_USER_FILE];
  */
 int load_user_file()
 {
-	FILE* fp = fopen("users-info.txt", "r");
+	FILE* fp = fopen("users/users-info.txt", "r");
 	if (!fp)
 	{
 		printf("couldn't open file\n");
@@ -95,6 +95,13 @@ bool exist_username(char* username_in)
 }
 
 
+void add_user_base_folder()
+{
+	//adds users/ folder
+	char command[64] = "mkdir users\0";
+    system(command);
+}
+
 void add_user_folder(char* username)
 {
     //remove user folder for clean beginning
@@ -118,7 +125,7 @@ void add_user_folder(char* username)
 int add_user(char* username, char* pwd, char* details)
 {	
 	//open file and append user infos
-	FILE* fp = fopen("users-info.txt", "a");
+	FILE* fp = fopen("users/users-info.txt", "a");
 	if (!fp)
 	{
 		printf("couldnt open file\n");
