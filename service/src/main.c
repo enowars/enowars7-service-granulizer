@@ -291,7 +291,7 @@ void download_pcm_file_call()
 	//get file content
 	char *p_buf;
 	int len = read_pcm(path_cpy, &p_buf);
-	printf("File: %s\n Len: %i\n", p_buf, len);
+	//printf("File: %s\n Len: %i\n", p_buf, len);
 
 	//b64 encode
 	char encoded[20640];
