@@ -59,10 +59,14 @@ void print_granular_info(granular_info* info)
 
 granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out)
 {
-    printf("Input buf len: %i\n", buf_len);
+    //printf("Input buf len: %i\n", buf_len);
     
-	const int num_grains = 100;
-	
+	int num_grains = 100;
+	if (buf_len < num_grains)
+    {
+        num_grains = buf_len;
+    }
+
 	granular_info* info = malloc(sizeof(granular_info));
 	info->num_samples = num_grains;
 	info->order_samples 	= calloc(num_grains, sizeof(int));

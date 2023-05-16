@@ -59,6 +59,7 @@ int write_pcm(char* file_name, char* p_data, int len)
         printf("error opening file for writing\n");
         return 1;
     }
+    //printf("Write file %s with len %i\n", p_data, len);
     fwrite(p_data, len, 1, f);
     fclose(f);
     return 0;

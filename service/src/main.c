@@ -39,12 +39,6 @@ char* ask(const char* prompt)
 	return buf;
 }
 
-void init()
-{
-	srand(time(NULL)); //create random seed
-}
-
-
 /**
  * Perform setup of service if the service does not exist yet.
  *
@@ -69,6 +63,8 @@ void setup_service()
 	//create empty file
 	fp = fopen("users/users-info.txt", "w");
 	fclose(fp);
+
+	srand(time(NULL)); //create random seed
 
 	/*
 	//delete users/ directory if it exist
@@ -135,8 +131,7 @@ void register_user()
 
 }
 
-
-void synth_file_call()
+void granulize_call()
 {
 	printf("Enter a file name: ");
 	char file_name[1024];
@@ -144,8 +139,6 @@ void synth_file_call()
 
 	char* tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
-
-	char* file_name_orig = strdup(file_name);
 
 	//check that file name is valid
 	char *dot = strrchr(file_name, '.');
@@ -171,11 +164,11 @@ void synth_file_call()
 		printf("Wav handler not yet implemented\n");
 	} else if (!strcmp(dot, ".pcm"))
 	{
-		printf("read .pcm file %s\n", file_name_complete);
+		//printf("read .pcm file %s\n", file_name_complete);
 		char *p_buf;
 		
 		int len = read_pcm(file_name_complete, &p_buf);
-		printf("read %s\n", p_buf);
+		//printf("read %s\n", p_buf);
 
 		//handle data:
 		char *new_sample;
@@ -189,15 +182,15 @@ void synth_file_call()
 		strcpy(file_name_complete, "users/");
 		strcat(file_name_complete, current_user);
 		strcat(file_name_complete, "/");
-		strcat(file_name_complete, "granulized.");
-		strcat(file_name_complete, file_name_orig);
-		strcat(file_name_complete, "\0");
-		printf("write to file %s\n", file_name_complete);
+		strcat(file_name_complete, "granulized.pcm\0");
+		//strcat(file_name_complete, file_name_orig);
+		
 		int res = write_pcm(file_name_complete, new_sample, new_sample_len);
 		if (res)
 		{
 			//TODO proper error checking
 		}
+		printf("written to file %s\n", file_name_complete);
 		
 	}	
 }
@@ -227,14 +220,14 @@ void upload_file(char* ending)
 		return;
 	}
 
-	printf("Enter base64 encoded wave file, maximum size 1024 bytes:\n");
+	printf("Enter base64 encoded wave file\n"); //, maximum size 1024 bytes:\n");
 	char base64encoded[1024];
 	fgets(base64encoded, 1024, stdin);
 
 	char input[1024];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
-	printf("%s\n", input);
+	//printf("%s\n", input);
 
 	if (len <= 0)
 	{
@@ -258,6 +251,8 @@ void upload_file(char* ending)
 
 	fwrite(input, 1, len, fp);
 	fclose(fp);
+	//TODO error checking
+	printf("Success\n");
 }
 
 void upload_pcm_file_call()
@@ -296,8 +291,7 @@ void download_pcm_file_call()
 	//get file content
 	char *p_buf;
 	int len = read_pcm(path_cpy, &p_buf);
-	printf("File: %s\n", p_buf);
-	
+	printf("File: %s\n Len: %i\n", p_buf, len);
 
 	//b64 encode
 	char encoded[20640];
@@ -316,6 +310,11 @@ void granulize_info_call()
 	}
 }
 
+void account_call()
+{
+	
+}
+
 void help_call()
 {
 	printf("upload wav - uploads a .wav file into own profile, encoded as base64\n");
@@ -324,24 +323,25 @@ void help_call()
 	printf("download pcm - downloads a .pcm file from own profile, encoded as base64\n");
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
+	printf("account - show account details\n");
 	printf("help - this prompt\n\n");
 }
 
 int main()
 {	
- printf("  _____ _____            _   _ _    _ _      _____ ____________ _____  \n");
- printf(" / ____|  __ \\     /\\   | \\ | | |  | | |    |_   _|___  /  ____|  __ \\ \n");
- printf("| |  __| |__) |   /  \\  |  \\| | |  | | |      | |    / /| |__  | |__) | \n");
- printf("| | |_ |  _  /   / /\\ \\ | . ` | |  | | |      | |   / / |  __| |  _  / \n");
- printf("| |__| | | \\ \\  / ____ \\| |\\  | |__| | |____ _| |_ / /__| |____| | \\ \\ \n");
- printf(" \\_____|_|  \\_\\/_/    \\_\\_| \\_|\\____/|______|_____/_____|______|_|  \\_\\ \n");
 
-                                                                        
+	setvbuf(stdin, NULL, _IONBF, 0);
+	setvbuf(stdout, NULL, _IONBF, 0);
 
+	printf("  _____ _____            _   _ _    _ _      _____ ____________ _____  \n");
+	printf(" / ____|  __ \\     /\\   | \\ | | |  | | |    |_   _|___  /  ____|  __ \\ \n");
+	printf("| |  __| |__) |   /  \\  |  \\| | |  | | |      | |    / /| |__  | |__) | \n");
+	printf("| | |_ |  _  /   / /\\ \\ | . ` | |  | | |      | |   / / |  __| |  _  / \n");
+	printf("| |__| | | \\ \\  / ____ \\| |\\  | |__| | |____ _| |_ / /__| |____| | \\ \\ \n");
+	printf(" \\_____|_|  \\_\\/_/    \\_\\_| \\_|\\____/|______|_____/_____|______|_|  \\_\\ \n\n");
 	
-
-
 	setup_service();
+
 	while (1)
 	{
 		char* in = ask("Hello! Do you want to login (l) or register (r)?\n >\0");
@@ -357,11 +357,10 @@ int main()
 			}
 		} else {
 			printf("Please enter login or register\n");
-			exit(0);
 		}
 	}
 
-	init();
+	
 
 	struct {
 		const char *name;
@@ -372,7 +371,8 @@ int main()
 		{ "download wav\n", download_wav_file_call },
 		{ "download pcm\n", download_pcm_file_call },
 		{ "granulize info\n", granulize_info_call },
-		{ "granulize\n", synth_file_call },
+		{ "granulize\n", granulize_call },
+		{ "account\n", account_call },
 		{ "help\n", help_call }
 	};
 

@@ -2,5 +2,5 @@
 *.pcm
 src/*.wav
 src/*.pcm
-src/main
+src/granulizer
 

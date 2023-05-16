@@ -95,6 +95,12 @@ bool exist_username(char* username_in)
 }
 
 
+char* get_users_details()
+{
+	printf("TODO\n");
+	return 0;
+}
+
 void add_user_base_folder()
 {
 	//adds users/ folder
