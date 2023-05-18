@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+//Contains complete user file
 char user_file_content[MAX_LEN_USER_FILE];
 
 /*
@@ -44,9 +45,10 @@ bool exist_username_with_password(char* username_in, char* password_in)
 	char *save_ptr_1, *save_ptr_2;
 
 	//USER:PASSWORD:PERSONAL_INFO
-	//TODO error checking
+	
 	//if (!user_file_content) return false; //if no users exist return false
 
+	load_user_file(); //always work with up-to-date user/pwd data
 
 	char* split = strdup(user_file_content);
 	
@@ -65,13 +67,11 @@ bool exist_username_with_password(char* username_in, char* password_in)
 		char* details 	= strtok_r(NULL, delimiter_details, &save_ptr_2);
 		assert(details);
 		
-		//printf("%s, %s, %s\n", username, pwd, details);
-		
-		if (!strcmp(username, username_in))
+		if (!strncmp(username, username_in, MAX_USER_NAME_LEN))
 		{
 			if (password_in)
 			{ //only check password if one was specified
-				if (!strcmp(pwd, password_in))
+				if (!strncmp(pwd, password_in, MAX_PWD_LEN))
 				{
 					return true;
 				}
