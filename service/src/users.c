@@ -73,17 +73,21 @@ bool exist_username_with_password(char* username_in, char* password_in)
 			{ //only check password if one was specified
 				if (!strncmp(pwd, password_in, MAX_PWD_LEN))
 				{
+					free(split);
 					return true;
 				}
 			} else {
+				free(split);
 				return true;
 			}
 		}
 
 		//get next data_row
 		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
-		//printf("next data row %s\n", data_row);
+		
 	}
+	
+	free(split);
 	return false;
 }
 
