@@ -20,12 +20,12 @@ int load_user_file();
 
 void add_user_base_folder();
 
-bool exist_username_with_password(char* username_in, char* password_in);
+bool exist_username_with_password(const char* username_in, const char* password_in);
 
-bool exist_username(char* username_in);
+bool exist_username(const char* username_in);
 
 char* get_users_details();
 
-int add_user(char* username, char* pwd, char* details);
+int add_user(const char* username, const char* pwd, const char* details);
 
 #endif

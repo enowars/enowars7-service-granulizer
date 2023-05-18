@@ -38,7 +38,7 @@ int load_user_file()
 
 
 
-bool exist_username_with_password(char* username_in, char* password_in)
+bool exist_username_with_password(const char* username_in, const char* password_in)
 {
 	char delimiter[] = ";";
 	char delimiter_details[] = ":";
@@ -86,14 +86,14 @@ bool exist_username_with_password(char* username_in, char* password_in)
 		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
 		
 	}
-	
+
 	free(split);
 	return false;
 }
 
 
 
-bool exist_username(char* username_in)
+bool exist_username(const char* username_in)
 {
 	return exist_username_with_password(username_in, NULL);
 }
@@ -112,7 +112,7 @@ void add_user_base_folder()
     system(command);
 }
 
-void add_user_folder(char* username)
+void add_user_folder(const char* username)
 {
     //remove user folder for clean beginning
     char command[64] = "rm -rf users/";
@@ -132,7 +132,7 @@ void add_user_folder(char* username)
  * Adds users info to users-info.txt, creates user folder
  *
  */
-int add_user(char* username, char* pwd, char* details)
+int add_user(const char* username, const char* pwd, const char* details)
 {	
 	//open file and append user infos
 	FILE* fp = fopen("users/users-info.txt", "a");
