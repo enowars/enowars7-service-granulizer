@@ -14,7 +14,6 @@
 
 #define ARRSIZE(a) (sizeof(a)/sizeof(a[0]))
 
-#define WAVE_HEADER_OFFSET 0x44
 
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
@@ -79,6 +78,10 @@ void setup_service()
 	}*/ 
 }
 
+
+/**
+ * Login prompt and checking.
+ */
 bool login()
 {
 	char *username, *password;
@@ -89,7 +92,6 @@ bool login()
 	char* password_tmp = ask("Password: ");
 	password = strdup(password_tmp);
 	
-	load_user_file(); //load current user file
 	if (exist_username_with_password(username, password))
 	{
 		printf("Welcome \'%s\'!\n", username);
@@ -98,7 +100,7 @@ bool login()
 		free(password);
 		return true;
 	}
-	
+
 	printf("Wrong password\n");
 	free(username);
 	free(password);

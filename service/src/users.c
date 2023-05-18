@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+//Contains complete user file
 char user_file_content[MAX_LEN_USER_FILE];
 
 /*
@@ -37,16 +38,17 @@ int load_user_file()
 
 
 
-bool exist_username_with_password(char* username_in, char* password_in)
+bool exist_username_with_password(const char* username_in, const char* password_in)
 {
 	char delimiter[] = ";";
 	char delimiter_details[] = ":";
 	char *save_ptr_1, *save_ptr_2;
 
 	//USER:PASSWORD:PERSONAL_INFO
-	//TODO error checking
+	
 	//if (!user_file_content) return false; //if no users exist return false
 
+	load_user_file(); //always work with up-to-date user/pwd data
 
 	char* split = strdup(user_file_content);
 	
@@ -65,31 +67,33 @@ bool exist_username_with_password(char* username_in, char* password_in)
 		char* details 	= strtok_r(NULL, delimiter_details, &save_ptr_2);
 		assert(details);
 		
-		//printf("%s, %s, %s\n", username, pwd, details);
-		
-		if (!strcmp(username, username_in))
+		if (!strncmp(username, username_in, MAX_USER_NAME_LEN))
 		{
 			if (password_in)
 			{ //only check password if one was specified
-				if (!strcmp(pwd, password_in))
+				if (!strncmp(pwd, password_in, MAX_PWD_LEN))
 				{
+					free(split);
 					return true;
 				}
 			} else {
+				free(split);
 				return true;
 			}
 		}
 
 		//get next data_row
 		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
-		//printf("next data row %s\n", data_row);
+		
 	}
+
+	free(split);
 	return false;
 }
 
 
 
-bool exist_username(char* username_in)
+bool exist_username(const char* username_in)
 {
 	return exist_username_with_password(username_in, NULL);
 }
@@ -108,7 +112,7 @@ void add_user_base_folder()
     system(command);
 }
 
-void add_user_folder(char* username)
+void add_user_folder(const char* username)
 {
     //remove user folder for clean beginning
     char command[64] = "rm -rf users/";
@@ -128,7 +132,7 @@ void add_user_folder(char* username)
  * Adds users info to users-info.txt, creates user folder
  *
  */
-int add_user(char* username, char* pwd, char* details)
+int add_user(const char* username, const char* pwd, const char* details)
 {	
 	//open file and append user infos
 	FILE* fp = fopen("users/users-info.txt", "a");
