@@ -1,0 +1,23 @@
+version: '3'
+services:
+  
+  granulizer-checker:
+    build: .
+    
+    ports:
+      - 2345:1234 #TODO check if port mapping is alright
+    environment:
+     - MONGO_ENABLED=1
+     - MONGO_HOST=granulizer-mongo
+     - MONGO_PORT=27017
+     - MONGO_USER=granulizer_checker
+     - MONGO_PASSWORD=granulizer_checker
+
+  # The python checkerlib requires a mongo db!
+  granulizer-mongo:
+    image: mongo
+    volumes:
+      - ./data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: granulizer_checker
+      MONGO_INITDB_ROOT_PASSWORD: granulizer_checker
