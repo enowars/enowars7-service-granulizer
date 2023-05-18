@@ -11,6 +11,7 @@ char user_file_content[MAX_LEN_USER_FILE];
 /*
  *
  * Read users-info.txt into user_file_content array
+ * Need to be called before reading contents of users-infos from user-file-content array.
  *
  * @return 	0 is success
 			1 if file couldn't be opened
