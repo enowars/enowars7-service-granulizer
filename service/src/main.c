@@ -11,6 +11,7 @@
 #include "base64.h"
 #include "granular.h"
 #include "file_handler.h"
+#include "log.c/log.h"
 
 #define ARRSIZE(a) (sizeof(a)/sizeof(a[0]))
 
@@ -99,22 +100,34 @@ bool login()
 
 void register_user()
 {
+	log_trace("Register call");
 	char* username  = ask("Username: ");
 	char* username_cpy = strdup(username);
+	log_trace("Entered user_name: %s", username_cpy);
 	char* password	= ask("Password: ");
 	char* password_cpy = strdup(password);
-	char* details 	= ask("Please share some details about yourself (will be privately stored in your account): ");
+	log_trace("Entered password: %s", password_cpy);
+	char* details 	= ask("Please share some details about yourself: ");
 	char* details_cpy = strdup(details);
+	log_trace("Entered details: %s", details_cpy);
 
 	//check if username does not exist
-	load_user_file(); //load current user file
+	int res = load_user_file(); //load current user file
+	if (res)
+	{
+		log_trace("Couldnt read user_file, abort register_user");
+		printf("Internal error, user couldn't created\n");
+		return;
+	}
 	bool exist = exist_username(username_cpy);
 	if (exist)
 	{
 		printf("user already exist!\n");
+		log_trace("Couldnt create user '%s' - already exists", username_cpy);
 	} else {
 		add_user(username_cpy, password_cpy, details_cpy);
 		printf("ok\n");
+		log_trace("User '%s' created successfully", username_cpy);
 	}
 	free(username_cpy);
 	free(password_cpy);
