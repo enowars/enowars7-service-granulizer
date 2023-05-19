@@ -70,11 +70,28 @@ class GranulizerChecker(BaseChecker):
 
     def login_user(self, conn: SimpleSocket, username: str, password: str):
         self.debug(f"Sending command to login.")
-        conn.write(f"log {username} {password}\n")
+        
+        conn.write(f"l\n")
+
         conn.readline_expect(
-            b"Successfully logged in!",
-            read_until=b">",
-            exception_message="Failed to log in",
+            b"Username: ",
+            read_until=b": ",
+            exception_message="Failed to enter register command"
+        )
+
+        conn.write(f"{username}\n")
+        conn.readline_expect(
+            b"Password: ",
+            read_until=b"Password: ",
+            exception_message="Failed to enter unter name"
+        )
+
+        conn.write(f"{password}\n")
+
+        conn.readline_expect(
+            b"What do you want to do?",
+            read_until=b"> ",
+            exception_message="User checking failed"
         )
 
     def putflag(self):  # type: () -> None

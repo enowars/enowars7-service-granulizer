@@ -71,20 +71,25 @@ void setup_service()
 
 /**
  * Login prompt and checking.
+ * When succesful login, current_user will be placed with username.
  */
 bool login()
 {
 	char *username, *password;
+	log_trace("Login call");
 
 	char* username_tmp = ask("Username: ");
 	username = strdup(username_tmp);
+	log_trace("Entered user_name: %s", username);
 
 	char* password_tmp = ask("Password: ");
 	password = strdup(password_tmp);
-	
+	log_trace("Entered password: %s", password);
+
 	if (exist_username_with_password(username, password))
 	{
 		printf("Welcome \'%s\'!\n", username);
+		log_trace("User '%s' successful login", username);
 		current_user = strdup(username);
 		free(username);
 		free(password);
@@ -92,9 +97,9 @@ bool login()
 	}
 
 	printf("Wrong password\n");
+	log_trace("User '%s' provided wrong credentials: %s", username, password);
 	free(username);
 	free(password);
-	
 	return false;
 }
 
@@ -389,7 +394,7 @@ int main()
 	char cmd[32];
 	while (1)
 	{
-		printf("What do you wanna do?\n > ");
+		printf("What do you want to do?\n > ");
 		fgets(cmd, 32, stdin);
 
 		int i;
