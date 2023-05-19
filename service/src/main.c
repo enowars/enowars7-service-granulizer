@@ -266,7 +266,7 @@ void upload_file(char* ending)
 	fwrite(input, 1, len, fp);
 	fclose(fp);
 	log_trace("Success upload file");
-	
+
 	//TODO error checking
 	printf("Success\n");
 }
@@ -288,11 +288,13 @@ void download_wav_file_call()
 
 void download_pcm_file_call()
 {
+	log_trace("Download pcm file call");
 	char* file_name = ask("Filename: ");
 	
 	//sanitize
 	if (path_contains_illegal_chars(file_name))
 	{
+		log_trace("File call cancelled: file contains illegal chars '%s'", file_name);
 		printf("Error - filename contains illegal character\n");
 		return;
 	}
@@ -300,9 +302,12 @@ void download_pcm_file_call()
 	char *dot = strrchr(file_name, '.');
 	if (!(dot && !strcmp(dot, ".pcm")))
 	{
+		log_trace("Download pcm aborted, filename does not end with .pcm: '%s'", file_name);
 		printf("Error - filename does not end with .pcm\n");
 		return;
 	}
+	
+	log_trace("Valid filename");
 	
 	//build path with filename
 	char* path = build_user_path(file_name);
@@ -313,13 +318,12 @@ void download_pcm_file_call()
 	//get file content
 	char *p_buf;
 	int len = read_pcm(path_cpy, &p_buf);
-	//printf("File: %s\n Len: %i\n", p_buf, len);
-
+	
 	//b64 encode
 	char encoded[20640];
 	len = Base64encode(encoded, p_buf, len);
 	printf("File: \n%s\n", encoded);
-
+	log_trace("Successfully sent file");
 }
 
 void granulize_info_call()

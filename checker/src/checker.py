@@ -10,6 +10,7 @@ import base64
 # A checker SHOULD use unusual, incorrect or pseudomalicious input to detect network filters => This tenet is not satisfied, because we do not send common attack strings (i.e. for SQL injection, RCE, etc.) in our notes or usernames.
 ####
 
+flag_file_name = "flag.pcm"
 
 class GranulizerChecker(BaseChecker):
     """
@@ -95,10 +96,8 @@ class GranulizerChecker(BaseChecker):
             exception_message="User checking failed"
         )
     
-    #user has to be login
-    def put_pcm(self, conn: SimpleSocket, flag: str):
-        flag_file_name = "flag.pcm"
-        
+    #checker has to login before put_pcm is called
+    def put_pcm(self, conn: SimpleSocket, filename: str, flag: str):
         self.debug(f"Put .pcm file as flag")
 
         conn.write(f"upload pcm\n")
@@ -108,7 +107,7 @@ class GranulizerChecker(BaseChecker):
             exception_message="Failed to enter 'upload pcm' command"
         )
 
-        conn.write(f"{flag_file_name}\n")
+        conn.write(f"{filename}\n")
         conn.readline_expect(
             b"Enter base64 encoded wave file\n",
             read_until=b"Enter base64 encoded wave file\n",
@@ -124,7 +123,30 @@ class GranulizerChecker(BaseChecker):
             read_until=b"Success\n",
             exception_message="B64 encoded flag writing did not work"
         )
+
+    def get_pcm(self, conn: SimpleSocket, filename: str):
+        self.debug(f"Get .pcm file as flag")
+
+        conn.write(f"download pcm\n")
+        conn.readline_expect(
+            b"Filename: ",
+            read_until=b"Filename: ",
+            exception_message="Failed to enter file name"
+        )
+
+        conn.write(f"{flag_file_name}\n")
+
+        conn.readline()
+        conn.readline() #TODO add timeout
+        base64_b = conn.readline()
+
+        file_content_b = base64.decodebytes(base64_b)
+        file_content = file_content_b.decode('utf-8')
+        self.debug("Got file content:")
+        self.debug(file_content)
         
+        return file_content
+    
 
     def putflag(self):  # type: () -> None
         """
@@ -162,42 +184,18 @@ class GranulizerChecker(BaseChecker):
             self.login_user(conn, username, password)
 
             # Put flag (.pcm file)
-            self.put_pcm(conn, self.flag)
+            self.put_pcm(conn, flag_file_name, self.flag)
             
-
-            return
-        
-            # Finally, we can post our note!
-            self.debug(f"Sending command to set the flag")
-            conn.write(f"set {self.flag}\n")
-            conn.read_until(b"Note saved! ID is ")
-
-            try:
-                # Try to retrieve the resulting noteId. Using rstrip() is hacky, you should probably want to use regular expressions or something more robust.
-                noteId = conn.read_until(b"!\n>").rstrip(b"!\n>").decode()
-            except Exception as ex:
-                self.debug(f"Failed to retrieve note: {ex}")
-                raise BrokenServiceException("Could not retrieve NoteId")
-
-            assert_equals(len(noteId) > 0, True, message="Empty noteId received")
-
-            self.debug(f"Got noteId {noteId}")
-
-            # Exit!
-            self.debug(f"Sending exit command")
-            conn.write(f"exit\n")
-            conn.close()
-
             # Save the generated values for the associated getflag() call.
             # This is not a real dictionary! You cannot update it (i.e., self.chain_db["foo"] = bar) and some types are converted (i.e., bool -> str.). See: https://github.com/enowars/enochecker/issues/27
             self.chain_db = {
                 "username": username,
                 "password": password,
-                "noteId": noteId,
+                "details": details
             }
-
         else:
             raise EnoException("Wrong variant_id provided")
+
 
     def getflag(self):  # type: () -> None
         """
@@ -214,7 +212,7 @@ class GranulizerChecker(BaseChecker):
             try:
                 username: str = self.chain_db["username"]
                 password: str = self.chain_db["password"]
-                noteId: str = self.chain_db["noteId"]
+                details: str = self.chain_db["details"]
             except Exception as ex:
                 self.debug(f"error getting notes from db: {ex}")
                 raise BrokenServiceException("Previous putflag failed.")
@@ -226,13 +224,12 @@ class GranulizerChecker(BaseChecker):
             # Let's login to the service
             self.login_user(conn, username, password)
 
-            # Let´s obtain our note.
-            self.debug(f"Sending command to retrieve note: {noteId}")
-            conn.write(f"get {noteId}\n")
-            note = conn.read_until(">")
-            assert_in(
-                self.flag.encode(), note, "Resulting flag was found to be incorrect"
-            )
+            # Let´s obtain our flag
+            flag = self.get_pcm(conn, flag_file_name)
+
+            #control that it is correct
+            if (flag != self.flag):
+                raise EnoException("flags are not similar!")
 
             # Exit!
             self.debug(f"Sending exit command")
