@@ -217,14 +217,18 @@ char* build_user_path(const char* file_name)
 
 void upload_file(char* ending)
 {
+	log_trace("Upload file %s call", ending);
+
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
 	{
+		log_trace("File call cancelled: wrong file ending '%s'", ending);
 		printf("File has to end with %s\n", ending);
 		return;
 	}
 	if (path_contains_illegal_chars(file_name_in))
 	{
+		log_trace("File call cancelled: file contains illegal chars '%s'", file_name_in);
 		printf("File name contains illegal characters\n");
 		return;
 	}
@@ -236,10 +240,10 @@ void upload_file(char* ending)
 	char input[1024];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
-	//printf("%s\n", input);
 
 	if (len <= 0)
 	{
+		log_trace("Error parsing the b64: %s", base64encoded);
 		printf("Error parsing the b64\n");
 		return;
 	}
@@ -255,11 +259,14 @@ void upload_file(char* ending)
 	if (!fp)
 	{
 		perror("fopen");
+		printf("Error writing to file\n");
 		return;
 	}
 
 	fwrite(input, 1, len, fp);
 	fclose(fp);
+	log_trace("Success upload file");
+	
 	//TODO error checking
 	printf("Success\n");
 }

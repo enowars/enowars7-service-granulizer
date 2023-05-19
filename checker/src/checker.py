@@ -3,6 +3,7 @@ from enochecker import BaseChecker, BrokenServiceException, EnoException, run
 from enochecker.utils import SimpleSocket, assert_equals, assert_in
 import random
 import string
+import base64
 
 #### Checker Tenets
 # A checker SHOULD not be easily identified by the examination of network traffic => This one is not satisfied, because our usernames and notes are simple too random and easily identifiable.
@@ -93,6 +94,37 @@ class GranulizerChecker(BaseChecker):
             read_until=b"> ",
             exception_message="User checking failed"
         )
+    
+    #user has to be login
+    def put_pcm(self, conn: SimpleSocket, flag: str):
+        flag_file_name = "flag.pcm"
+        
+        self.debug(f"Put .pcm file as flag")
+
+        conn.write(f"upload pcm\n")
+        conn.readline_expect(
+            b"Enter file name for new file: ",
+            read_until=b"Enter file name for new file: ",
+            exception_message="Failed to enter 'upload pcm' command"
+        )
+
+        conn.write(f"{flag_file_name}\n")
+        conn.readline_expect(
+            b"Enter base64 encoded wave file\n",
+            read_until=b"Enter base64 encoded wave file\n",
+            exception_message="Failed to enter file name"
+        )
+
+        #write flag as file
+        flagb64_bytes = base64.b64encode(flag.encode('utf-8'))
+        flagb64 = flagb64_bytes.decode('utf-8')        
+        conn.write(f"{flagb64}\n")
+        conn.readline_expect(
+            b"Success\n",
+            read_until=b"Success\n",
+            exception_message="B64 encoded flag writing did not work"
+        )
+        
 
     def putflag(self):  # type: () -> None
         """
@@ -128,6 +160,10 @@ class GranulizerChecker(BaseChecker):
 
             # Now we need to login
             self.login_user(conn, username, password)
+
+            # Put flag (.pcm file)
+            self.put_pcm(conn, self.flag)
+            
 
             return
         
