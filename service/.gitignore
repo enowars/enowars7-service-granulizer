@@ -4,3 +4,4 @@ src/*.wav
 src/*.pcm
 src/granulizer
 src/users-info.txt
+users/

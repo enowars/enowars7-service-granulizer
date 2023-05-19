@@ -71,20 +71,25 @@ void setup_service()
 
 /**
  * Login prompt and checking.
+ * When succesful login, current_user will be placed with username.
  */
 bool login()
 {
 	char *username, *password;
+	log_trace("Login call");
 
 	char* username_tmp = ask("Username: ");
 	username = strdup(username_tmp);
+	log_trace("Entered user_name: %s", username);
 
 	char* password_tmp = ask("Password: ");
 	password = strdup(password_tmp);
-	
+	log_trace("Entered password: %s", password);
+
 	if (exist_username_with_password(username, password))
 	{
 		printf("Welcome \'%s\'!\n", username);
+		log_trace("User '%s' successful login", username);
 		current_user = strdup(username);
 		free(username);
 		free(password);
@@ -92,9 +97,9 @@ bool login()
 	}
 
 	printf("Wrong password\n");
+	log_trace("User '%s' provided wrong credentials: %s", username, password);
 	free(username);
 	free(password);
-	
 	return false;
 }
 
@@ -212,14 +217,18 @@ char* build_user_path(const char* file_name)
 
 void upload_file(char* ending)
 {
+	log_trace("Upload file %s call", ending);
+
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
 	{
+		log_trace("File call cancelled: wrong file ending '%s'", ending);
 		printf("File has to end with %s\n", ending);
 		return;
 	}
 	if (path_contains_illegal_chars(file_name_in))
 	{
+		log_trace("File call cancelled: file contains illegal chars '%s'", file_name_in);
 		printf("File name contains illegal characters\n");
 		return;
 	}
@@ -231,10 +240,10 @@ void upload_file(char* ending)
 	char input[1024];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
-	//printf("%s\n", input);
 
 	if (len <= 0)
 	{
+		log_trace("Error parsing the b64: %s", base64encoded);
 		printf("Error parsing the b64\n");
 		return;
 	}
@@ -250,11 +259,14 @@ void upload_file(char* ending)
 	if (!fp)
 	{
 		perror("fopen");
+		printf("Error writing to file\n");
 		return;
 	}
 
 	fwrite(input, 1, len, fp);
 	fclose(fp);
+	log_trace("Success upload file");
+
 	//TODO error checking
 	printf("Success\n");
 }
@@ -276,11 +288,13 @@ void download_wav_file_call()
 
 void download_pcm_file_call()
 {
+	log_trace("Download pcm file call");
 	char* file_name = ask("Filename: ");
 	
 	//sanitize
 	if (path_contains_illegal_chars(file_name))
 	{
+		log_trace("File call cancelled: file contains illegal chars '%s'", file_name);
 		printf("Error - filename contains illegal character\n");
 		return;
 	}
@@ -288,9 +302,12 @@ void download_pcm_file_call()
 	char *dot = strrchr(file_name, '.');
 	if (!(dot && !strcmp(dot, ".pcm")))
 	{
+		log_trace("Download pcm aborted, filename does not end with .pcm: '%s'", file_name);
 		printf("Error - filename does not end with .pcm\n");
 		return;
 	}
+	
+	log_trace("Valid filename");
 	
 	//build path with filename
 	char* path = build_user_path(file_name);
@@ -301,13 +318,12 @@ void download_pcm_file_call()
 	//get file content
 	char *p_buf;
 	int len = read_pcm(path_cpy, &p_buf);
-	//printf("File: %s\n Len: %i\n", p_buf, len);
-
+	
 	//b64 encode
 	char encoded[20640];
 	len = Base64encode(encoded, p_buf, len);
 	printf("File: \n%s\n", encoded);
-
+	log_trace("Successfully sent file");
 }
 
 void granulize_info_call()
@@ -389,7 +405,7 @@ int main()
 	char cmd[32];
 	while (1)
 	{
-		printf("What do you wanna do?\n > ");
+		printf("What do you want to do?\n > ");
 		fgets(cmd, 32, stdin);
 
 		int i;
