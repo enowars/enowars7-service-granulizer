@@ -65,17 +65,6 @@ void setup_service()
 
 	srand(time(NULL)); //create random seed
 
-	/*
-	//delete users/ directory if it exist
-	system("rm -rf users/");
-
-	//create users/ directory
-	int res = mkdir("users", 0777);
-	
-	if (res)
-	{
-		//TODO proper checking
-	}*/ 
 }
 
 
@@ -282,7 +271,13 @@ void download_pcm_file_call()
 		printf("Error - filename contains illegal character\n");
 		return;
 	}
-	
+	//check if filename ending is correct
+	char *dot = strrchr(file_name, '.');
+	if (!(dot && !strcmp(dot, ".pcm")))
+	{
+		printf("Error - filename does not end with .pcm\n");
+		return;
+	}
 	
 	//build path with filename
 	char* path = build_user_path(file_name);
