@@ -5,7 +5,7 @@ services:
     build: .
     
     ports:
-      - 2345:1234 #TODO check if port mapping is alright
+      - 2346:3031 #TODO check if port mapping is alright
     environment:
      - MONGO_ENABLED=1
      - MONGO_HOST=granulizer-mongo
