@@ -7,6 +7,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <ftw.h>
+#define _XOPEN_SOURCE 500
+
 
 //Contains complete user file
 char user_file_content[MAX_LEN_USER_FILE];
@@ -117,19 +120,39 @@ void add_user_base_folder()
 
 }
 
+int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+    int rv = remove(fpath);
+    if (rv)
+	{
+        perror(fpath);
+	}
+
+    return rv;
+}
+
+int rmrf(char *path)
+{
+    return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
+}
+
 void add_user_folder(const char* username)
 {
     //remove user folder for clean beginning
-    char command[64] = "rm -rf users/";
-    strcat(command, username);
-    strcat(command, "/");
-    system(command);
+
+    char path[64] = "users/";
+	
+    strcat(path, username);
+    strcat(path, "/");
     
+	rmrf(path);
+
     //create users folder
-    char command2[64] = "mkdir users/";
-    strcat(command2, username);
-    strcat(command2, "/");
-    system(command2);
+	struct stat st = {0};
+	if (stat(path, &st) == -1) {
+		mkdir(path, 0700);
+	}
+
 }
 
 /**
