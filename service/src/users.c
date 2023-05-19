@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 //Contains complete user file
 char user_file_content[MAX_LEN_USER_FILE];
@@ -46,8 +49,6 @@ bool exist_username_with_password(const char* username_in, const char* password_
 	char *save_ptr_1, *save_ptr_2;
 
 	//USER:PASSWORD:PERSONAL_INFO
-	
-	//if (!user_file_content) return false; //if no users exist return false
 
 	load_user_file(); //always work with up-to-date user/pwd data
 
@@ -85,7 +86,6 @@ bool exist_username_with_password(const char* username_in, const char* password_
 
 		//get next data_row
 		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
-		
 	}
 
 	free(split);
@@ -109,8 +109,12 @@ char* get_users_details()
 void add_user_base_folder()
 {
 	//adds users/ folder
-	char command[64] = "mkdir users\0";
-    system(command);
+	struct stat st = {0};
+
+	if (stat("users", &st) == -1) {
+		mkdir("users", 0700);
+	}
+
 }
 
 void add_user_folder(const char* username)
