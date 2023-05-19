@@ -229,7 +229,7 @@ class GranulizerChecker(BaseChecker):
 
             #control that it is correct
             if (flag != self.flag):
-                raise EnoException("flags are not similar!")
+                raise BrokenServiceException("flags are not similar!")
 
             # Exit!
             self.debug(f"Sending exit command")
