@@ -30,11 +30,17 @@ int read_wav(char* file_name, char** p_data)
 /**
  * Reads all data from given file_name into *p_data
  * @param p_data return pointer to memory
+ * @return len of read bytes from file when successful, otherwise -1.
  */
 int read_pcm(char* file_name, char** p_data)
 {
     //read in complete file
     FILE* f = fopen(file_name, "rb");
+    if (!f)
+    {
+        printf("Error opening the file\n");
+        return -1;
+    }
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f); //get size
     fseek(f, 0, SEEK_SET);  //go back to beginning
