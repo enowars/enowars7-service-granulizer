@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <ftw.h>
+#define _XOPEN_SOURCE 500
+
 
 //Contains complete user file
 char user_file_content[MAX_LEN_USER_FILE];
@@ -46,8 +52,6 @@ bool exist_username_with_password(const char* username_in, const char* password_
 	char *save_ptr_1, *save_ptr_2;
 
 	//USER:PASSWORD:PERSONAL_INFO
-	
-	//if (!user_file_content) return false; //if no users exist return false
 
 	load_user_file(); //always work with up-to-date user/pwd data
 
@@ -85,7 +89,6 @@ bool exist_username_with_password(const char* username_in, const char* password_
 
 		//get next data_row
 		data_row = strtok_r(NULL, delimiter, &save_ptr_1);
-		
 	}
 
 	free(split);
@@ -109,23 +112,47 @@ char* get_users_details()
 void add_user_base_folder()
 {
 	//adds users/ folder
-	char command[64] = "mkdir users\0";
-    system(command);
+	struct stat st = {0};
+
+	if (stat("users", &st) == -1) {
+		mkdir("users", 0700);
+	}
+
+}
+
+int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+    int rv = remove(fpath);
+    if (rv)
+	{
+        perror(fpath);
+	}
+
+    return rv;
+}
+
+int rmrf(char *path)
+{
+    return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
 
 void add_user_folder(const char* username)
 {
     //remove user folder for clean beginning
-    char command[64] = "rm -rf users/";
-    strcat(command, username);
-    strcat(command, "/");
-    system(command);
+
+    char path[64] = "users/";
+	
+    strcat(path, username);
+    strcat(path, "/");
     
+	rmrf(path);
+
     //create users folder
-    char command2[64] = "mkdir users/";
-    strcat(command2, username);
-    strcat(command2, "/");
-    system(command2);
+	struct stat st = {0};
+	if (stat(path, &st) == -1) {
+		mkdir(path, 0700);
+	}
+
 }
 
 /**
