@@ -10,7 +10,7 @@ import string
 ####
 
 
-class N0t3b00kChecker(BaseChecker):
+class GranulizerChecker(BaseChecker):
     """
     Change the methods given here, then simply create the class and .run() it.
     Magic.
@@ -28,21 +28,44 @@ class N0t3b00kChecker(BaseChecker):
     ##### EDIT YOUR CHECKER PARAMETERS
     flag_variants = 1
     noise_variants = 1
-    havoc_variants = 3
-    exploit_variants = 3
-    service_name = "n0t3b00k"
-    port = 2323  # The port will automatically be picked up as default by self.connect and self.http.
+    havoc_variants = 1
+    exploit_variants = 1
+    service_name = "granulizer"
+    port = 2345  # The port will automatically be picked up as default by self.connect and self.http.
     ##### END CHECKER PARAMETERS
 
-    def register_user(self, conn: SimpleSocket, username: str, password: str):
+    def register_user(self, conn: SimpleSocket, username: str, password: str, details: str):
         self.debug(
-            f"Sending command to register user: {username} with password: {password}"
+            f"Sending command to register user: {username} with password: {password}, details: {details}"
         )
-        conn.write(f"reg {username} {password}\n")
+        #response = conn.readuntil("> ")
+
+        conn.write(f"r\n")
         conn.readline_expect(
-            b"User successfully registered",
-            read_until=b">",
+            b"Username: ",
+            read_until=b": ",
+            exception_message="Failed to enter register command"
+        )
+
+        conn.write(f"{username}\n")
+        conn.readline_expect(
+            b"Password: ",
+            read_until=b"Password: ",
+            exception_message="Failed to enter unter name"
+        )
+
+        conn.write(f"{password}\n")
+        conn.readline_expect(
+            b"Please share some details about yourself: ",
+            read_until=b"Please share some details about yourself: ",
             exception_message="Failed to register user",
+        )
+
+        conn.write(f"{details}\n")
+        conn.readline_expect(
+            b"ok",
+            read_until=b"ok",
+            exception_message="Failed to register user"
         )
 
     def login_user(self, conn: SimpleSocket, username: str, password: str):
@@ -73,6 +96,9 @@ class N0t3b00kChecker(BaseChecker):
             password: str = "".join(
                 random.choices(string.ascii_uppercase + string.digits, k=12)
             )
+            details: str = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=12)                
+            )
 
             # Log a message before any critical action that could raise an error.
             self.debug(f"Connecting to service")
@@ -81,11 +107,13 @@ class N0t3b00kChecker(BaseChecker):
             welcome = conn.read_until(">")
 
             # Register a new user
-            self.register_user(conn, username, password)
+            self.register_user(conn, username, password, details)
 
             # Now we need to login
             self.login_user(conn, username, password)
 
+            return
+        
             # Finally, we can post our note!
             self.debug(f"Sending command to set the flag")
             conn.write(f"set {self.flag}\n")
@@ -427,6 +455,6 @@ class N0t3b00kChecker(BaseChecker):
         raise EnoException("wrong variant_id provided")
 
 
-app = N0t3b00kChecker.service  # This can be used for uswgi.
+app = GranulizerChecker.service  # This can be used for uswgi.
 if __name__ == "__main__":
-    run(N0t3b00kChecker)
+    run(GranulizerChecker)
