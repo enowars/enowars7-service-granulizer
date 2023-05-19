@@ -38,32 +38,32 @@ class GranulizerChecker(BaseChecker):
         self.debug(
             f"Sending command to register user: {username} with password: {password}, details: {details}"
         )
-        conn.read
+        #response = conn.readuntil("> ")
 
         conn.write(f"r\n")
         conn.readline_expect(
-            b"Register command successfully entered",
-            read_until=b"Username: ",
+            b"Username: ",
+            read_until=b": ",
             exception_message="Failed to enter register command"
         )
 
         conn.write(f"{username}\n")
         conn.readline_expect(
-            b"Username successfully entered",
+            b"Password: ",
             read_until=b"Password: ",
             exception_message="Failed to enter unter name"
         )
 
         conn.write(f"{password}\n")
         conn.readline_expect(
-            b"Password successfully entered",
-            read_until=b"account): ",
+            b"Please share some details about yourself: ",
+            read_until=b"Please share some details about yourself: ",
             exception_message="Failed to register user",
         )
 
         conn.write(f"{details}\n")
-        conn.readline_except(
-            b"User successfully registered",
+        conn.readline_expect(
+            b"ok",
             read_until=b"ok",
             exception_message="Failed to register user"
         )
@@ -108,11 +108,12 @@ class GranulizerChecker(BaseChecker):
 
             # Register a new user
             self.register_user(conn, username, password, details)
-            return
 
             # Now we need to login
             self.login_user(conn, username, password)
 
+            return
+        
             # Finally, we can post our note!
             self.debug(f"Sending command to set the flag")
             conn.write(f"set {self.flag}\n")
