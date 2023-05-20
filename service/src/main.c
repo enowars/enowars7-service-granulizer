@@ -204,7 +204,7 @@ void granulize_call()
 	}	
 }
 
-char* build_user_path(const char* file_name)
+static char* build_user_path(const char* file_name)
 {
 	static char string[1024];
 	memset(string, 0, 1024);
@@ -288,40 +288,51 @@ void upload_wav_file_call()
 	upload_file(".wav\0");
 }
 
-void download_wav_file_call()
-{
-	printf("TODO\n");
-}
 
-void download_pcm_file_call()
+/**
+ * @return entered sanitized filename, or NULL if error occurred
+ * Example call: ask_correct_filename(".wav")
+ */
+static char* ask_correct_filename(const char* file_ending)
 {
-	log_trace("Download pcm file call");
+	log_trace("Download %s file call", file_ending);
 	char* file_name = ask("Filename: ");
-	
+
 	//sanitize
 	if (path_contains_illegal_chars(file_name))
 	{
 		log_trace("File call cancelled: file contains illegal chars '%s'", file_name);
 		printf("Error - filename contains illegal character\n");
-		return;
+		return NULL;
 	}
 	//check if filename ending is correct
 	char *dot = strrchr(file_name, '.');
-	if (!(dot && !strcmp(dot, ".pcm")))
+	if (!(dot && !strcmp(dot, file_ending)))
 	{
-		log_trace("Download pcm aborted, filename does not end with .pcm: '%s'", file_name);
-		printf("Error - filename does not end with .pcm\n");
-		return;
+		log_trace("Download pcm aborted, filename does not end with %s: '%s'", file_ending, file_name);
+		printf("Error - filename does not end with %s\n", file_ending);
+		return NULL;
 	}
 	
 	log_trace("Valid filename");
+	
+	return file_name;
+}
+
+void download_file_call(const char* ending)
+{
+	log_trace("Download file call");
+	char* file_name = ask_correct_filename(ending);
+	if (!file_name)
+	{
+		return;
+	}
 	
 	//build path with filename
 	char* path = build_user_path(file_name);
 	printf("read file from path %s\n", path);
 	char* path_cpy = strdup(path);
 	
-
 	//get file content
 	char *p_buf;
 	int len = read_pcm(path_cpy, &p_buf);
@@ -331,6 +342,16 @@ void download_pcm_file_call()
 	len = Base64encode(encoded, p_buf, len);
 	printf("File: \n%s\n", encoded);
 	log_trace("Successfully sent file");
+}
+
+void download_wav_file_call()
+{
+	download_file_call(".wav");
+}
+
+void download_pcm_file_call()
+{
+	download_file_call(".pcm");
 }
 
 void granulize_info_call()
