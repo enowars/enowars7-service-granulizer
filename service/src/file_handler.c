@@ -1,30 +1,123 @@
 #include "file_handler.h"
 
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "tinywav.h"
+#include "log.c/log.h"
+
+typedef struct WavHeader {
+  uint32_t ChunkID;
+  uint32_t ChunkSize;
+  uint32_t Format;
+  uint32_t Subchunk1ID;
+  uint32_t Subchunk1Size;
+  uint16_t AudioFormat;
+  uint16_t NumChannels;
+  uint32_t SampleRate;
+  uint32_t ByteRate;
+  uint16_t BlockAlign;
+  uint16_t BitsPerSample;
+  uint32_t Subchunk2ID;
+  uint32_t Subchunk2Size;
+} WavHeader;
 
 /**
  * Reads all data from wav file from the given file_name. 
  */
 int read_wav(char* file_name, char** p_data)
 {
-    TinyWav tw;
-    tinywav_open_read(&tw, file_name, TW_INLINE); //SPLIT for each channel in separate buffer
-    
-    int totalNumSamples = tw.numFramesInHeader;
-    
-    float* buffer = malloc(totalNumSamples * 4);
-    int samplesRead = tinywav_read_f(&tw, buffer, totalNumSamples);
-    if (samplesRead == 0) //TODO proper error handling
+    log_trace("Read .wav call for file %s.", file_name);
+
+    WavHeader *header = calloc(sizeof(WavHeader), 1);
+
+    FILE* f = fopen(file_name, "rb");
+    if (!f)
     {
-        return 0;
+        printf("error opening file\n");
+        log_trace("error opening file");
+        free(header);
+        return 1;
     }
-    tinywav_close_read(&tw);
+
+    size_t ret = fread(header, sizeof(WavHeader), 1, f); //read header
     
-    *p_data = (char*) buffer;
+    //check that header has correct format
+    if (ret <= 0)
+    {
+        printf("error reading file\n");
+        log_trace("error reading file");
+        free(header);
+        fclose(f);
+        return 1;
+    }
+    if (header->ChunkID != htonl(0x52494646)) // "RIFF"
+    {
+        printf("Error: wav file has wrong format\n");
+        log_trace("Error: wav file has wrong format");
+        free(header);
+        fclose(f);
+        return 1;
+    }
+    if (header->Format != htonl(0x57415645)) // "WAVE"
+    {
+        printf("Error: wav file has wrong format\n");
+        log_trace("Error: wav file has wrong format");
+        free(header);
+        fclose(f);
+        return 1;
+    }
+    if (header->Subchunk1ID != htonl(0x666d7420)) // "fmt "
+    {
+        printf("Error: wav file has wrong format\n");
+        log_trace("Error: wav file has wrong format");
+        free(header);
+        fclose(f);
+        return 1;
+    }
+
+    log_trace("Correct .wav format");
+
+    // skip over any other chunks before the "data" chunk
+    bool additionalHeaderDataPresent = false;
+    while (header->Subchunk2ID != htonl(0x64617461)) {   // "data"
+        log_trace("Additional not data chunk found, ignore");
+        fseek(f, 4, SEEK_CUR);
+        fread(header->Subchunk2ID, 4, 1, f);
+        additionalHeaderDataPresent = true;
+    }
+    if (header->Subchunk2ID != htonl(0x64617461))    // "data"
+    {
+        printf("Error: wav file has wrong format\n");
+        log_trace("Error: wav file has wrong format");
+        free(header);
+        fclose(f);
+        return 1;
+    }
+    if (additionalHeaderDataPresent) {
+        // read the value of Subchunk2Size, the one populated when reading 'TinyWavHeader' structure is wrong
+        fread(header->Subchunk2Size, 4, 1, f);
+        log_trace("Rewriting chunk size, now: %u", header->Subchunk2Size);
+    }
+    log_trace("Data chunk size: 0x%x", header->Subchunk2Size);
+
+    //header->Subchunk2Size is number of bytes in .wav, read all
+    char* data = malloc( header->Subchunk2Size * sizeof(char) );
     
-    return totalNumSamples;
+    size_t read = fread(data, sizeof(char), header->Subchunk2Size, f);
+    if (read != header->Subchunk2Size)
+    {
+        printf("Error reading .wav content\n");
+        log_trace("Error reading .wav content");
+        free(header);
+        free(data);
+        fclose(f);
+        return 1;
+    }
+
+    free(header);
+    *p_data = data;
+    return read;
 }
 
 /**
