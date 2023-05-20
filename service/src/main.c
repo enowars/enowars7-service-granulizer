@@ -259,13 +259,20 @@ void upload_file(char* ending)
 	if (!fp)
 	{
 		perror("fopen");
-		printf("Error writing to file\n");
+		printf("Error opening file\n");
+		log_warn("Error opening file");
 		return;
 	}
 
-	fwrite(input, 1, len, fp);
-	fclose(fp);
-	log_trace("Success upload file");
+	int written = fwrite(input, 1, len, fp);
+	if (written != len)
+	{
+		printf("Error writing to file\n");
+		log_warn("Error writing to file");
+		return;
+	}
+	fclose(fp); //TODO error handling here
+	log_trace("Success uploaded file to %s", file_name_complete);
 
 	//TODO error checking
 	printf("Success\n");
