@@ -23,7 +23,7 @@
  */
 int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
 {
-    log_trace("Read .wav call for file %s.", file_name);
+    log_trace("Read .wav call for file %s", file_name);
 
     WavHeader *header = calloc(sizeof(WavHeader), 1);
 
@@ -31,7 +31,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (!f)
     {
         printf("error opening file\n");
-        log_trace("error opening file");
+        log_error("error opening file");
         free(header);
         return -1;
     }
@@ -42,7 +42,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (ret != 1)
     {
         printf("error reading file\n");
-        log_trace("error reading file");
+        log_error("error reading file");
         free(header);
         fclose(f);
         return -1;
@@ -50,7 +50,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (header->ChunkID != htonl(0x52494646)) // "RIFF"
     {
         printf("Error: wav file has wrong format\n");
-        log_trace("Error: wav file has wrong format");
+        log_error("Error: wav file has wrong format");
         free(header);
         fclose(f);
         return -1;
@@ -58,7 +58,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (header->Format != htonl(0x57415645)) // "WAVE"
     {
         printf("Error: wav file has wrong format\n");
-        log_trace("Error: wav file has wrong format");
+        log_error("Error: wav file has wrong format");
         free(header);
         fclose(f);
         return -1;
@@ -66,26 +66,27 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (header->Subchunk1ID != htonl(0x666d7420)) // "fmt "
     {
         printf("Error: wav file has wrong format\n");
-        log_trace("Error: wav file has wrong format");
+        log_error("Error: wav file has wrong format");
         free(header);
         fclose(f);
         return -1;
     }
 
-    log_trace("Correct .wav format");
+    log_debug("Correct .wav format");
 
     // skip over any other chunks before the "data" chunk
     bool additionalHeaderDataPresent = false;
     while (header->Subchunk2ID != htonl(0x64617461)) {   // "data"
-        log_trace("Additional not data chunk found, ignore");
+        log_warn("Additional not data chunk found, ignore");
         fseek(f, 4, SEEK_CUR);
         fread(&header->Subchunk2ID, 4, 1, f);
         additionalHeaderDataPresent = true;
     }
+
     if (header->Subchunk2ID != htonl(0x64617461))    // "data"
     {
         printf("Error: wav file has wrong format\n");
-        log_trace("Error: wav file has wrong format");
+        log_error("Error: wav file has wrong format");
         free(header);
         fclose(f);
         return -1;
@@ -93,9 +94,9 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (additionalHeaderDataPresent) {
         // read the value of Subchunk2Size, the one populated when reading 'TinyWavHeader' structure is wrong
         fread(&header->Subchunk2Size, 4, 1, f);
-        log_trace("Rewriting chunk size, now: %u", header->Subchunk2Size);
+        log_debug("Rewriting chunk size, now: %u", header->Subchunk2Size);
     }
-    log_trace("Data chunk size: 0x%x", header->Subchunk2Size);
+    log_debug("Data chunk size: 0x%x", header->Subchunk2Size);
 
     //header->Subchunk2Size is number of bytes in .wav, read all
     char* data = malloc( header->Subchunk2Size * sizeof(char) );
@@ -104,7 +105,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     if (read != header->Subchunk2Size)
     {
         printf("Error reading .wav content\n");
-        log_trace("Error reading .wav content");
+        log_error("Error reading .wav content");
         free(header);
         free(data);
         fclose(f);
@@ -115,6 +116,9 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     fclose(f);
     *p_data = data;
     *wavHeader = header;
+
+    log_info("Success reading .wav file");
+
     return read;
 }
 
