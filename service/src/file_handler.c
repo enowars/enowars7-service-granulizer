@@ -1,31 +1,27 @@
+/**
+ * .wav writing / reading inspired from tinywav project, see https://github.com/mhroth/tinywav.
+ *
+ */
+
 #include "file_handler.h"
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <netinet/in.h>
+
 #include "tinywav.h"
 #include "log.c/log.h"
 
-typedef struct WavHeader {
-  uint32_t ChunkID;
-  uint32_t ChunkSize;
-  uint32_t Format;
-  uint32_t Subchunk1ID;
-  uint32_t Subchunk1Size;
-  uint16_t AudioFormat;
-  uint16_t NumChannels;
-  uint32_t SampleRate;
-  uint32_t ByteRate;
-  uint16_t BlockAlign;
-  uint16_t BitsPerSample;
-  uint32_t Subchunk2ID;
-  uint32_t Subchunk2Size;
-} WavHeader;
+
 
 /**
- * Reads all data from wav file from the given file_name. 
+ * Reads all data from wav file from the given file_name.
+ * @param p_data return pointer for data
+ * @param wavHeader return header which was read from original file, in WavHeader format
+ * @returns length of read data in bytes, or -1 for error 
  */
-int read_wav(char* file_name, char** p_data)
+int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
 {
     log_trace("Read .wav call for file %s.", file_name);
 
@@ -37,19 +33,19 @@ int read_wav(char* file_name, char** p_data)
         printf("error opening file\n");
         log_trace("error opening file");
         free(header);
-        return 1;
+        return -1;
     }
 
     size_t ret = fread(header, sizeof(WavHeader), 1, f); //read header
     
     //check that header has correct format
-    if (ret <= 0)
+    if (ret != 1)
     {
         printf("error reading file\n");
         log_trace("error reading file");
         free(header);
         fclose(f);
-        return 1;
+        return -1;
     }
     if (header->ChunkID != htonl(0x52494646)) // "RIFF"
     {
@@ -57,7 +53,7 @@ int read_wav(char* file_name, char** p_data)
         log_trace("Error: wav file has wrong format");
         free(header);
         fclose(f);
-        return 1;
+        return -1;
     }
     if (header->Format != htonl(0x57415645)) // "WAVE"
     {
@@ -65,7 +61,7 @@ int read_wav(char* file_name, char** p_data)
         log_trace("Error: wav file has wrong format");
         free(header);
         fclose(f);
-        return 1;
+        return -1;
     }
     if (header->Subchunk1ID != htonl(0x666d7420)) // "fmt "
     {
@@ -73,7 +69,7 @@ int read_wav(char* file_name, char** p_data)
         log_trace("Error: wav file has wrong format");
         free(header);
         fclose(f);
-        return 1;
+        return -1;
     }
 
     log_trace("Correct .wav format");
@@ -83,7 +79,7 @@ int read_wav(char* file_name, char** p_data)
     while (header->Subchunk2ID != htonl(0x64617461)) {   // "data"
         log_trace("Additional not data chunk found, ignore");
         fseek(f, 4, SEEK_CUR);
-        fread(header->Subchunk2ID, 4, 1, f);
+        fread(&header->Subchunk2ID, 4, 1, f);
         additionalHeaderDataPresent = true;
     }
     if (header->Subchunk2ID != htonl(0x64617461))    // "data"
@@ -92,11 +88,11 @@ int read_wav(char* file_name, char** p_data)
         log_trace("Error: wav file has wrong format");
         free(header);
         fclose(f);
-        return 1;
+        return -1;
     }
     if (additionalHeaderDataPresent) {
         // read the value of Subchunk2Size, the one populated when reading 'TinyWavHeader' structure is wrong
-        fread(header->Subchunk2Size, 4, 1, f);
+        fread(&header->Subchunk2Size, 4, 1, f);
         log_trace("Rewriting chunk size, now: %u", header->Subchunk2Size);
     }
     log_trace("Data chunk size: 0x%x", header->Subchunk2Size);
@@ -112,11 +108,13 @@ int read_wav(char* file_name, char** p_data)
         free(header);
         free(data);
         fclose(f);
-        return 1;
+        return -1;
     }
 
     free(header);
+    fclose(f);
     *p_data = data;
+    *wavHeader = header;
     return read;
 }
 
@@ -165,22 +163,67 @@ int write_pcm(char* file_name, char* p_data, int len)
     return 0;
 }
 
-int write_wav(char* file_name, float* p_data, int len)
+int write_wav(const char* file_name, const char* p_data, const WavHeader* w_header, const uint32_t len)
 {
-    const int NUM_CHANNELS = 1;
-    const int SAMPLE_RATE = 16000;
+    log_debug("Start .wav file writing");
 
-    TinyWav twWriter;
-    tinywav_open_write(&twWriter, NUM_CHANNELS, SAMPLE_RATE, TW_FLOAT32, TW_INLINE, file_name);
-    int samplesWritten = tinywav_write_f(&twWriter, p_data, len);
+    WavHeader* header_cpy = (WavHeader*) w_header;
+
+    //prepare header
+    header_cpy->ChunkID = htonl(0x52494646); // "RIFF"
+    header_cpy->ChunkSize = 0; // fill this in on file-close
+    header_cpy->Format = htonl(0x57415645); // "WAVE"
+    header_cpy->Subchunk1ID = htonl(0x666d7420); // "fmt "
+    header_cpy->Subchunk1Size = 16; // PCM
+    header_cpy->Subchunk2ID = htonl(0x64617461); // "data"
+    header_cpy->Subchunk2Size = 0; // fill this in on file-close
     
-    if (samplesWritten == 0) //TODO: proper error checking
+    FILE* f = fopen(file_name, "wb");
+    if (!f)
     {
-        return 0;
+        log_error("Error opening the file", file_name);
+
+        printf("Error opening the file %s\n", file_name);
+        perror("Error opening the file");
+        return -1;
     }
+    log_info("Opened .wav file successfully");
+
+    //Write header
+    size_t written = fwrite(header_cpy, sizeof(WavHeader), 1, f);
+    if (written != 1)
+    {
+        log_error("Error writing header, written bytes %i instead of %i", written, sizeof(WavHeader));
+        printf("Error writing .wav file\n");
+        perror("Error writing .wav file");
+        fclose(f);
+        return -1;
+    }
+    log_debug("Header written successfully");
+
+    //Write data
+    written = fwrite(p_data, sizeof(char), len, f);
+    if (written != len)
+    {
+        log_error("Error writing .wav content, written bytes %i instead of %i", written, len * sizeof(char));
+        printf("Error writing file\n");
+        fclose(f);
+        return -1;
+    }
+    //Update header with content size and chunk size
+    fseek(f, 4, SEEK_SET);
+    uint32_t chunkSize_len = 36 + len;
+    fwrite(&chunkSize_len, sizeof(uint32_t), 1, f);
     
-    tinywav_close_write(&twWriter);
-    
+    fseek(f, 40, SEEK_SET);
+    fwrite(&len, sizeof(uint32_t), 1, f);
+
+    //Finish
+    fclose(f);
+    free(header_cpy);
+
+    log_info("Successfully written .wav file");
+
     return len;
 }
 
