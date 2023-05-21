@@ -29,9 +29,9 @@ class GranulizerChecker(BaseChecker):
 
     ##### EDIT YOUR CHECKER PARAMETERS
     flag_variants = 1
-    noise_variants = 1
-    havoc_variants = 1
-    exploit_variants = 1
+    noise_variants = 0
+    havoc_variants = 0
+    exploit_variants = 0
     service_name = "granulizer"
     port = 2345  # The port will automatically be picked up as default by self.connect and self.http.
     ##### END CHECKER PARAMETERS
