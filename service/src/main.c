@@ -142,6 +142,11 @@ void register_user()
 
 void granulize_call()
 {
+	enum FILE_MODE {
+		PCM,
+		WAV
+	};
+
 	printf("Enter a file name: ");
 	char file_name[1024];
 	fgets(file_name, 1024, stdin);
@@ -160,6 +165,7 @@ void granulize_call()
 		printf("file has to end with .wav or .pcm\n");
 		return;
 	}
+	log_debug("Correct file ending: %s", dot);
 	
 	//build path
 	char file_name_complete[128];
@@ -167,41 +173,74 @@ void granulize_call()
 	strcat(file_name_complete, current_user);
 	strcat(file_name_complete, "/");
 	strcat(file_name_complete, file_name);
+	log_debug("Complete file path: %s", file_name_complete);
+
+	int len;
+	char* p_data;
+	WavHeader* w_header;
+	enum FILE_MODE file_mode;
 
 	if (!strcmp(dot, ".wav"))
-	{ //wave handler
-		printf("Wav handler not yet implemented\n");
+	{
+		file_mode = WAV;
+		len = read_wav(file_name_complete, &p_data, &w_header);
+		if (len < 1)
+		{
+			log_error("No data from read_wav, abort granulization");
+			printf("Error reading file\n");
+			return;
+		}
 	} else if (!strcmp(dot, ".pcm"))
 	{
-		//printf("read .pcm file %s\n", file_name_complete);
-		char *p_buf;
-		
-		int len = read_pcm(file_name_complete, &p_buf);
-		//printf("read %s\n", p_buf);
-
-		//handle data:
-		char *new_sample;
-		int new_sample_len;
-		granular_info* info = granulize(p_buf, len, &new_sample, &new_sample_len);
-
-		last_granular_info = info;
-
-		//write data to users folder
-		memset(file_name_complete, 0, 128);
-		strcpy(file_name_complete, "users/");
-		strcat(file_name_complete, current_user);
-		strcat(file_name_complete, "/");
-		strcat(file_name_complete, "granulized.pcm\0");
-		//strcat(file_name_complete, file_name_orig);
-		
-		int res = write_pcm(file_name_complete, new_sample, new_sample_len);
-		if (res)
+		file_mode = PCM;
+		len = read_pcm(file_name_complete, &p_data);
+		if (len < 1)
 		{
-			//TODO proper error checking
+			log_error("No data from read_wav, abort granulization");
+			printf("Error reading file\n");
+			return;
 		}
-		printf("written to file %s\n", file_name_complete);
-		
-	}	
+	} else {
+		printf("Error, wrong file format");
+		log_error("no pcm or wav file for input, instead: %s", dot);
+	}
+	log_info("Successfully read data");
+
+	//handle data:
+	char *new_sample;
+	int new_sample_len;
+	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len);
+
+	last_granular_info = info;
+
+	//write data to users folder
+	memset(file_name_complete, 0, 128);
+	strcpy(file_name_complete, "users/");
+	strcat(file_name_complete, current_user);
+	strcat(file_name_complete, "/");
+	
+	
+	//write file
+	int res;
+	if (file_mode == WAV)
+	{
+		strcat(file_name_complete, "granulized.wav\0");
+		res = write_wav(file_name_complete, new_sample, w_header, new_sample_len);
+	} else if (file_mode == PCM)
+	{
+		strcat(file_name_complete, "granulized.pcm\0");
+		res = write_pcm(file_name_complete, new_sample, new_sample_len);
+	} else {
+		printf("Error, wrong file format");
+		log_error("no pcm or wav file for input, instead: %s", dot);
+	}
+
+	if (res)
+	{
+		//TODO proper error checking
+	}
+	printf("written to file %s\n", file_name_complete);
+	log_info("written to file %s", file_name_complete);
 }
 
 static char* build_user_path(const char* file_name)
