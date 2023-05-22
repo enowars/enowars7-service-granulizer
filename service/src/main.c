@@ -209,7 +209,9 @@ void granulize_call()
 	//handle data:
 	char *new_sample;
 	int new_sample_len;
-	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len);
+	const int bytes_per_sample = 256;
+
+	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample);
 
 	last_granular_info = info;
 
@@ -235,10 +237,6 @@ void granulize_call()
 		log_error("no pcm or wav file for input, instead: %s", dot);
 	}
 
-	if (res)
-	{
-		//TODO proper error checking
-	}
 	printf("written to file %s\n", file_name_complete);
 	log_info("written to file %s", file_name_complete);
 }
