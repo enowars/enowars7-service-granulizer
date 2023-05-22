@@ -152,7 +152,8 @@ class GranulizerChecker(BaseChecker):
             exception_message="B64 encoded flag writing did not work"
         )
 
-    def get_pcm(self, conn: SimpleSocket, filename: str):
+    
+    def get_pcm(self, conn: SimpleSocket, filename: str) -> bytearray:
         self.debug(f"Get .pcm file as flag")
 
         conn.write(f"download pcm\n")
@@ -170,11 +171,10 @@ class GranulizerChecker(BaseChecker):
         self.debug("Read b64 encoded:")
         self.debug(base64_b)
         file_content_b = base64.decodebytes(base64_b)
-        file_content = file_content_b.decode('utf-8')
-        self.debug("Got file content:")
-        self.debug(file_content)
+        self.debug("Base64 decoded:")
+        self.debug(file_content_b)
         
-        return file_content
+        return file_content_b
     
     def flatten(self, lst):
         return list(itertools.chain(*[self.flatten(i) if isinstance(i, list) else [i] for i in lst]))
@@ -206,10 +206,13 @@ class GranulizerChecker(BaseChecker):
         #convert into string:
         self.debug("Reverse, orig_data flattened:")
         self.debug(orig_data)
+        d = bytes(orig_data)
+        utf8_str = d.decode('utf-8')
+        self.debug(utf8_str)
         #char_array = [chr(i) for i in orig_data if i is not None]
         #reconstructed_str = ''.join(char_array)
-        reconstructed_str = ''.join(orig_data)
-
+        #reconstructed_str = ''.join(orig_data)
+        return utf8_str
         return reconstructed_str
 
     def helper_parse_bytearray(self, byte_array):
@@ -225,7 +228,6 @@ class GranulizerChecker(BaseChecker):
         return value_int
 
 
-    import re
 
     def helper_parse_bytearray_to_list(self, byte_array):
         # Convert bytearray to string
@@ -366,7 +368,8 @@ class GranulizerChecker(BaseChecker):
             self.login_user(conn, username, password)
 
             # Let´s obtain our flag
-            flag = self.get_pcm(conn, flag_file_name)
+            flag_b = self.get_pcm(conn, flag_file_name)
+            flag = flag_b.decode('utf-8')
 
             #control that it is correct
             if (flag != self.flag):
@@ -379,215 +382,14 @@ class GranulizerChecker(BaseChecker):
         else:
             raise EnoException("Wrong variant_id provided")
 
+    def putnoise(self):
+        raise EnoException("Wrong variant_id provided")
+
+    def getnoise(self):
+        raise EnoException("Wrong variant_id provided")
     
-    def putnoise(self):  # type: () -> None
-        """
-        This method stores noise in the service. The noise should later be recoverable.
-        The difference between noise and flag is, that noise does not have to remain secret for other teams.
-        This method can be called many times per round. Check how often using self.variant_id.
-        On error, raise an EnoException.
-        :raises EnoException on error
-        :return this function can return a result if it wants
-                if nothing is returned, the service status is considered okay.
-                the preferred way to report errors in the service is by raising an appropriate enoexception
-        """
-        if self.variant_id == 0:
-            self.debug(f"Connecting to the service")
-            conn = self.connect()
-            welcome = conn.read_until(">")
-
-            # First we need to register a user. So let's create some random strings. (Your real checker should use some better usernames or so [i.e., use the "faker¨ lib])
-            username = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            password = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            randomNote = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=36)
-            )
-
-            # Register another user
-            self.register_user(conn, username, password)
-
-            # Now we need to login
-            self.login_user(conn, username, password)
-
-            # Finally, we can post our note!
-            self.debug(f"Sending command to save a note")
-            conn.write(f"set {randomNote}\n")
-            conn.read_until(b"Note saved! ID is ")
-
-            try:
-                noteId = conn.read_until(b"!\n>").rstrip(b"!\n>").decode()
-            except Exception as ex:
-                self.debug(f"Failed to retrieve note: {ex}")
-                raise BrokenServiceException("Could not retrieve NoteId")
-
-            assert_equals(len(noteId) > 0, True, message="Empty noteId received")
-
-            self.debug(f"{noteId}")
-
-            # Exit!
-            self.debug(f"Sending exit command")
-            conn.write(f"exit\n")
-            conn.close()
-
-            self.chain_db = {
-                "username": username,
-                "password": password,
-                "noteId": noteId,
-                "note": randomNote,
-            }
-        else:
-            raise EnoException("Wrong variant_id provided")
-
-    def getnoise(self):  # type: () -> None
-        """
-        This method retrieves noise in the service.
-        The noise to be retrieved is inside self.flag
-        The difference between noise and flag is, that noise does not have to remain secret for other teams.
-        This method can be called many times per round. Check how often using variant_id.
-        On error, raise an EnoException.
-        :raises EnoException on error
-        :return this function can return a result if it wants
-                if nothing is returned, the service status is considered okay.
-                the preferred way to report errors in the service is by raising an appropriate enoexception
-        """
-        if self.variant_id == 0:
-            try:
-                username: str = self.chain_db["username"]
-                password: str = self.chain_db["password"]
-                noteId: str = self.chain_db["noteId"]
-                randomNote: str = self.chain_db["note"]
-            except Exception as ex:
-                self.debug("Failed to read db {ex}")
-                raise BrokenServiceException("Previous putnoise failed.")
-
-            self.debug(f"Connecting to service")
-            conn = self.connect()
-            welcome = conn.read_until(">")
-
-            # Let's login to the service
-            self.login_user(conn, username, password)
-
-            # Let´s obtain our note.
-            self.debug(f"Sending command to retrieve note: {noteId}")
-            conn.write(f"get {noteId}\n")
-            conn.readline_expect(
-                randomNote.encode(),
-                read_until=b">",
-                exception_message="Resulting flag was found to be incorrect"
-            )
-
-            # Exit!
-            self.debug(f"Sending exit command")
-            conn.write(f"exit\n")
-            conn.close()
-        else:
-            raise EnoException("Wrong variant_id provided")
-
-    def havoc(self):  # type: () -> None
-        """
-        This method unleashes havoc on the app -> Do whatever you must to prove the service still works. Or not.
-        On error, raise an EnoException.
-        :raises EnoException on Error
-        :return This function can return a result if it wants
-                If nothing is returned, the service status is considered okay.
-                The preferred way to report Errors in the service is by raising an appropriate EnoException
-        """
-        self.debug(f"Connecting to service")
-        conn = self.connect()
-        welcome = conn.read_until(">")
-
-        if self.variant_id == 0:
-            # In variant 1, we'll check if the help text is available
-            self.debug(f"Sending help command")
-            conn.write(f"help\n")
-            is_ok = conn.read_until(">")
-
-            for line in [
-                "This is a notebook service. Commands:",
-                "reg USER PW - Register new account",
-                "log USER PW - Login to account",
-                "set TEXT..... - Set a note",
-                "user  - List all users",
-                "list - List all notes",
-                "exit - Exit!",
-                "dump - Dump the database",
-                "get ID",
-            ]:
-                assert_in(line.encode(), is_ok, "Received incomplete response.")
-
-        elif self.variant_id == 1:
-            # In variant 2, we'll check if the `user` command still works.
-            username = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            password = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-
-            # Register and login a dummy user
-            self.register_user(conn, username, password)
-            self.login_user(conn, username, password)
-
-            self.debug(f"Sending user command")
-            conn.write(f"user\n")
-            ret = conn.readline_expect(
-                "User 0: ",
-                read_until=b">",
-                exception_message="User command does not return any users",
-            )
-
-            if username:
-                assert_in(username.encode(), ret, "Flag username not in user output")
-
-        elif self.variant_id == 2:
-            # In variant 2, we'll check if the `list` command still works.
-            username = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            password = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            randomNote = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=36)
-            )
-
-            # Register and login a dummy user
-            self.register_user(conn, username, password)
-            self.login_user(conn, username, password)
-
-            self.debug(f"Sending command to save a note")
-            conn.write(f"set {randomNote}\n")
-            conn.read_until(b"Note saved! ID is ")
-
-            try:
-                noteId = conn.read_until(b"!\n>").rstrip(b"!\n>").decode()
-            except Exception as ex:
-                self.debug(f"Failed to retrieve note: {ex}")
-                raise BrokenServiceException("Could not retrieve NoteId")
-
-            assert_equals(len(noteId) > 0, True, message="Empty noteId received")
-
-            self.debug(f"{noteId}")
-
-            self.debug(f"Sending list command")
-            conn.write(f"list\n")
-            conn.readline_expect(
-                noteId.encode(),
-                read_until=b'>',
-                exception_message="List command does not work as intended"
-            )
-
-        else:
-            raise EnoException("Wrong variant_id provided")
-
-        # Exit!
-        self.debug(f"Sending exit command")
-        conn.write(f"exit\n")
-        conn.close()
+    def havoc(self):
+        raise EnoException("Wrong variant_id provided")
     
 
     def exploit(self):
@@ -654,15 +456,16 @@ class GranulizerChecker(BaseChecker):
 
             #get file for reversing
             data = self.get_pcm(conn, "granulized.pcm")
+            self.debug("Got data from server:")
             self.debug(data)
 
             #reverse
             reversed = self.reverse_pcm(data, 
-                            granulize_params['granular_number_samples'], 
-                            granulize_params['granular_order_samples'],
-                            granulize_params['granular_order_timelens'],
-                            granulize_params['granular_order_buffer_lens'])
-            self.debug("Reversed: ")
+                granulize_params['granular_number_samples'], 
+                granulize_params['granular_order_samples'],
+                granulize_params['granular_order_timelens'],
+                granulize_params['granular_order_buffer_lens'])
+            self.debug("Complete reversed: ")
             self.debug(reversed)
             #build hash of this flag and compare
             flag_hash_got = hashlib.sha256(reversed.encode()).hexdigest()
@@ -674,47 +477,8 @@ class GranulizerChecker(BaseChecker):
             self.debug("Correct hash!")
             
             return reversed
-            #raise BrokenServiceException("flag not found")
-        '''
-        elif self.variant_id == 1:
-            conn = self.connect()
-            welcome = conn.read_until(">")
-            conn.write(b"user\n")
-            user_list = conn.read_until(b">").split(b"\n")[:-1]
-            for user in user_list:
-                user_name = user.split()[-1]
-                conn.write(b"reg %s foo\nlog %s foo\n list\n" % (user_name, user_name))
-                conn.read_until(b">")  # successfully registered
-                conn.read_until(b">")  # successfully logged in
-                notes_list = conn.read_until(b">").split(b"\n")[:-1]
-                for note in notes_list:
-                    note_id = note.split()[-1]
-                    conn.write(b"get %s\n" % note_id)
-                    data = conn.read_until(b">")
-                    if flag := self.search_flag_bytes(data):
-                        return flag
-            raise BrokenServiceException("flag not found")
-        elif self.variant_id == 2:
-            conn = self.connect()
-            welcome = conn.read_until(">")
-            conn.write(b"user\n")
-            user_list = conn.read_until(b">").split(b"\n")[:-1]
-            for user in user_list:
-                user_name = user.split()[-1]
-                conn.write(b"reg ../users/%s foo\nlog %s foo\n list\n" % (user_name, user_name))
-                conn.read_until(b">")  # successfully registered
-                conn.read_until(b">")  # successfully logged in
-                notes_list = conn.read_until(b">").split(b"\n")[:-1]
-                for note in notes_list:
-                    note_id = note.split()[-1]
-                    conn.write(b"get %s\n" % note_id)
-                    data = conn.read_until(b">")
-                    if flag := self.search_flag_bytes(data):
-                        return flag
-            raise BrokenServiceException("flag not found")
-        '''
-
-        #raise EnoException("wrong variant_id provided")
+        else:
+            raise EnoException("Wrong variant_id provided")
 
 
 app = GranulizerChecker.service  # This can be used for uswgi.
