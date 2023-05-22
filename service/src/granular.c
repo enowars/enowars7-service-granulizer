@@ -136,11 +136,11 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         {
             //info->order_timelens = new_sample_
             info->order_buffer_lens[i] = (buf_len - sample_position);
-            printf("Timelen is here %i\n", info->order_timelens[i]);
-            printf("Buf Len: %i\n", buf_len);
-            printf("Sample len: %i\n", sample_position);
-            printf("Buffer length of last (weird) element: %i\n", info->order_buffer_lens[i]);
-            printf("Time factor of last (weird) element: %i\n", info->order_timelens[i]);
+            //printf("Timelen is here %i\n", info->order_timelens[i]);
+            //printf("Buf Len: %i\n", buf_len);
+            //printf("Sample len: %i\n", sample_position);
+            //printf("Buffer length of last (weird) element: %i\n", info->order_buffer_lens[i]);
+            //printf("Time factor of last (weird) element: %i\n", info->order_timelens[i]);
             assert(info->order_buffer_lens[i] + (num_grains - 1) * grains_len == buf_len);
         }
         //printf("Grains len here %i for %i\n", grains_len_here, i);

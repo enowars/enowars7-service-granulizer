@@ -6,6 +6,9 @@
 #include "../src/file_handler.h"
 #include "../src/granular.h"
 
+/*
+ * Crude testing.
+ */
 int main(int argc, char **argv)
 {
     char* file_name = "example_saw.wav";

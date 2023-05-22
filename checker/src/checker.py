@@ -4,6 +4,7 @@ from enochecker.utils import SimpleSocket, assert_equals, assert_in
 import random
 import string
 import base64
+import json
 
 #### Checker Tenets
 # A checker SHOULD not be easily identified by the examination of network traffic => This one is not satisfied, because our usernames and notes are simple too random and easily identifiable.
@@ -95,7 +96,29 @@ class GranulizerChecker(BaseChecker):
             read_until=b"> ",
             exception_message="User checking failed"
         )
+
+
+    def granulize_file(self, conn: SimpleSocket, filename: str, username: str):
+        self.debug(f"Try to granulize file {filename}\n")
     
+        conn.write(f"granulize\n")
+        conn.readline_expect(
+            b"Enter a file name: ",
+            read_until=b"Enter a file name: ",
+            exception_message="Failed to enter 'granulize' command"
+        )
+
+        conn.write(f"{filename}\n")
+        conn.readline_expect(
+            b"written to file users/{username}/granulized.pcm\nWhat do you want to do?\n > ",
+            read_until=b"written to file users/{username}/granulized.pcm\nWhat do you want to do?\n > ",
+            exception_message="Failed to granulize"
+        )
+
+        self.debug("Granulized successfully!\n")
+
+        
+
     #checker has to login before put_pcm is called
     def put_pcm(self, conn: SimpleSocket, filename: str, flag: str):
         self.debug(f"Put .pcm file as flag")
@@ -193,6 +216,11 @@ class GranulizerChecker(BaseChecker):
                 "password": password,
                 "details": details
             }
+
+            return json.dumps({
+                "username": username,
+                "file-name": flag_file_name
+            })
         else:
             raise EnoException("Wrong variant_id provided")
 
@@ -238,7 +266,7 @@ class GranulizerChecker(BaseChecker):
         else:
             raise EnoException("Wrong variant_id provided")
 
-
+    
     def putnoise(self):  # type: () -> None
         """
         This method stores noise in the service. The noise should later be recoverable.
@@ -447,6 +475,7 @@ class GranulizerChecker(BaseChecker):
         self.debug(f"Sending exit command")
         conn.write(f"exit\n")
         conn.close()
+    
 
     def exploit(self):
         """
@@ -458,13 +487,54 @@ class GranulizerChecker(BaseChecker):
                 The preferred way to report Errors in the service is by raising an appropriate EnoException
         """
         if self.variant_id == 0:
+            
+            #login as some user
+            
+            #granulize ../{user}/flag.pcm
+            #download pcm
+            #flag.pcm
+
+            #reverse
+
+            #check
+            #hash flag!
+            '''
+            flag_hash = hashlib.sha256(flag.encoide()).hexdigest()
+
+            if flag_hash != self.flag_hash:
+                raise BrokenServiceException("Flag is not correct")
+            '''
+            attack_info = json.loads(self.attack_info)
+            self.debug("Got attack info:")
+            self.debug(attack_info)
+
+            # Log a message before any critical action that could raise an error.
+            self.debug(f"Connecting to service")
+            # Create a TCP connection to the service.
             conn = self.connect()
             welcome = conn.read_until(">")
-            conn.write(b"dump\nexit\n")
-            data = conn.read_all()
-            if flag := self.search_flag_bytes(data):
-                return flag
+
+            username: str = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=12)
+            )
+            password: str = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=12)
+            )
+            details: str = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=12)                
+            )
+
+            # Register a new user
+            self.register_user(conn, username, password, details)
+
+            # Now we need to login
+            self.login_user(conn, username, password)
+            
+            # Granulize file of user to be exploited
+            self.granulize_file(conn, filename, username)
+
             raise BrokenServiceException("flag not found")
+        '''
         elif self.variant_id == 1:
             conn = self.connect()
             welcome = conn.read_until(">")
@@ -501,6 +571,7 @@ class GranulizerChecker(BaseChecker):
                     if flag := self.search_flag_bytes(data):
                         return flag
             raise BrokenServiceException("flag not found")
+        '''
 
         raise EnoException("wrong variant_id provided")
 
