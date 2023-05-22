@@ -109,18 +109,41 @@ void register_user()
 	char* username  = ask("Username: ");
 	char* username_cpy = strdup(username);
 	log_trace("Entered user_name: %s", username_cpy);
+	if (!strcmp(username_cpy, ""))
+	{
+		log_warn("Entered username is empty, abort");
+		printf("Empty username is not allowed\n");
+		free(username_cpy);
+		return;
+	}
 	char* password	= ask("Password: ");
 	char* password_cpy = strdup(password);
 	log_trace("Entered password: %s", password_cpy);
+	if (!strcmp(password_cpy, ""))
+	{
+		log_warn("Entered password is empty, abort");
+		printf("Empty password is not allowed\n");
+		free(username_cpy);
+		free(password_cpy);
+		return;
+	}
 	char* details 	= ask("Please share some details about yourself: ");
 	char* details_cpy = strdup(details);
 	log_trace("Entered details: %s", details_cpy);
-
+	if (!strcmp(details_cpy, ""))
+	{
+		log_warn("Entered details is empty, abort");
+		printf("Empty details is not allowed\n");
+		free(username_cpy);
+		free(password_cpy);
+		free(details_cpy);
+		return;
+	}
 	//check if username does not exist
 	int res = load_user_file(); //load current user file
 	if (res)
 	{
-		log_trace("Couldnt read user_file, abort register_user");
+		log_error("Couldnt read user_file, abort register_user");
 		printf("Internal error, user couldn't created\n");
 		return;
 	}
