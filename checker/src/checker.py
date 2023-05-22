@@ -151,7 +151,8 @@ class GranulizerChecker(BaseChecker):
             exception_message="B64 encoded flag writing did not work"
         )
 
-    def get_pcm(self, conn: SimpleSocket, filename: str):
+    
+    def get_pcm(self, conn: SimpleSocket, filename: str) -> bytearray:
         self.debug(f"Get .pcm file as flag")
 
         conn.write(f"download pcm\n")
@@ -169,11 +170,10 @@ class GranulizerChecker(BaseChecker):
         self.debug("Read b64 encoded:")
         self.debug(base64_b)
         file_content_b = base64.decodebytes(base64_b)
-        file_content = file_content_b.decode('utf-8')
-        self.debug("Got file content:")
-        self.debug(file_content)
+        self.debug("Base64 decoded:")
+        self.debug(file_content_b)
         
-        return file_content
+        return file_content_b
     
     def flatten(self, lst):
         return list(itertools.chain(*[self.flatten(i) if isinstance(i, list) else [i] for i in lst]))
@@ -205,10 +205,13 @@ class GranulizerChecker(BaseChecker):
         #convert into string:
         self.debug("Reverse, orig_data flattened:")
         self.debug(orig_data)
+        d = bytes(orig_data)
+        utf8_str = d.decode('utf-8')
+        self.debug(utf8_str)
         #char_array = [chr(i) for i in orig_data if i is not None]
         #reconstructed_str = ''.join(char_array)
-        reconstructed_str = ''.join(orig_data)
-
+        #reconstructed_str = ''.join(orig_data)
+        return utf8_str
         return reconstructed_str
 
     def helper_parse_bytearray(self, byte_array):
@@ -364,7 +367,8 @@ class GranulizerChecker(BaseChecker):
             self.login_user(conn, username, password)
 
             # Let´s obtain our flag
-            flag = self.get_pcm(conn, flag_file_name)
+            flag_b = self.get_pcm(conn, flag_file_name)
+            flag = flag_b.decode('utf-8')
 
             #control that it is correct
             if (flag != self.flag):
@@ -451,6 +455,7 @@ class GranulizerChecker(BaseChecker):
 
             #get file for reversing
             data = self.get_pcm(conn, "granulized.pcm")
+            self.debug("Got data from server:")
             self.debug(data)
 
             #reverse
@@ -459,7 +464,7 @@ class GranulizerChecker(BaseChecker):
                 granulize_params['granular_order_samples'],
                 granulize_params['granular_order_timelens'],
                 granulize_params['granular_order_buffer_lens'])
-            self.debug("Reversed: ")
+            self.debug("Complete reversed: ")
             self.debug(reversed)
             #build hash of this flag and compare
             flag_hash_got = hashlib.sha256(reversed.encode()).hexdigest()
