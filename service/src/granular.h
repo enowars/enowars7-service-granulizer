@@ -3,8 +3,18 @@
 
 typedef struct granular_info {
 	int num_samples;
+	/**
+	 * Order of written grains in new granulized data.
+	 */
 	int* order_samples;
+	/**
+	 * Timelength of each grain in new granulized data.
+	 */
 	int* order_timelens;
+	/**
+	 * Original buffer length of original data, in original order.
+	 */
+	int* order_buffer_lens;
 	int grain_len;
 } granular_info;
 
