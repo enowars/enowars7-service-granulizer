@@ -5,14 +5,12 @@ typedef struct granular_info {
 	int num_samples;
 	int* order_samples;
 	int* order_timelens;
+	int grain_len;
 } granular_info;
 
-void print_granular_info(granular_info* info);
+void print_granular_info(const granular_info* info);
 
-granular_info* granulize(char* buf, int buf_len, char** buf_out, int* len_out);
+granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int* len_out, const unsigned int bytes_per_sample);
 
-int synth_file(char* string, int len);
-
-void get_last_synth_params();
 
 #endif
