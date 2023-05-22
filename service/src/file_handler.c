@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 
-#include "tinywav.h"
 #include "log.c/log.h"
 
 
@@ -92,7 +91,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
         return -1;
     }
     if (additionalHeaderDataPresent) {
-        // read the value of Subchunk2Size, the one populated when reading 'TinyWavHeader' structure is wrong
+        // read the value of Subchunk2Size, the one populated when reading 'WavHeader' structure is wrong
         fread(&header->Subchunk2Size, 4, 1, f);
         log_debug("Rewriting chunk size, now: %u", header->Subchunk2Size);
     }
