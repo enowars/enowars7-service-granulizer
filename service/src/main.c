@@ -367,20 +367,26 @@ static char* build_user_path(const char* file_name)
 	return string;
 }
 
-void upload_file(char* ending)
+void upload_file(const char* ending)
 {
-	log_trace("Upload file %s call", ending);
+	log_trace("Upload file (with ending %s) call", ending);
 
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
 	{
-		log_trace("File call cancelled: wrong file ending '%s'", ending);
+		log_warn("File call cancelled: wrong file ending '%s'", ending);
 		printf("File has to end with %s\n", ending);
+		return;
+	}
+	if (strlen(file_name_in) < 5)
+	{
+		log_warn("File upload cancelled, filename too short");
+		printf("File name too short\n");
 		return;
 	}
 	if (path_contains_illegal_chars(file_name_in))
 	{
-		log_trace("File call cancelled: file contains illegal chars '%s'", file_name_in);
+		log_warn("File call cancelled: file contains illegal chars '%s'", file_name_in);
 		printf("File name contains illegal characters\n");
 		return;
 	}
@@ -395,7 +401,7 @@ void upload_file(char* ending)
 
 	if (len <= 0)
 	{
-		log_trace("Error parsing the b64: %s", base64encoded);
+		log_warn("Error parsing the b64: %s", base64encoded);
 		printf("Error parsing the b64\n");
 		return;
 	}
@@ -453,7 +459,7 @@ static char* ask_correct_filename(const char* file_ending)
 	//sanitize
 	if (path_contains_illegal_chars(file_name))
 	{
-		log_trace("File call cancelled: file contains illegal chars '%s'", file_name);
+		log_warn("File call cancelled: file contains illegal chars '%s'", file_name);
 		printf("Error - filename contains illegal character\n");
 		return NULL;
 	}
@@ -461,7 +467,7 @@ static char* ask_correct_filename(const char* file_ending)
 	char *dot = strrchr(file_name, '.');
 	if (!(dot && !strcmp(dot, file_ending)))
 	{
-		log_trace("Download pcm aborted, filename does not end with %s: '%s'", file_ending, file_name);
+		log_warn("Download pcm aborted, filename does not end with %s: '%s'", file_ending, file_name);
 		printf("Error - filename does not end with %s\n", file_ending);
 		return NULL;
 	}
