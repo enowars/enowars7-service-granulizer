@@ -196,6 +196,7 @@ void granulize_call()
 		PCM,
 		WAV
 	};
+	log_trace("Granulize call");
 
 	printf("Enter a file name: ");
 	char file_name[1024];
@@ -246,7 +247,7 @@ void granulize_call()
 		len = read_pcm(file_name_complete, &p_data);
 		if (len < 1)
 		{
-			log_error("No data from read_wav, abort granulization");
+			log_error("No data from read_pcm, abort granulization");
 			printf("Error reading file\n");
 			return;
 		}
@@ -408,13 +409,14 @@ static char* ask_correct_filename(const char* file_ending)
 
 void download_file_call(const char* ending)
 {
-	log_trace("Download file call");
+	log_trace("Entering download file call %s", ending);
 	char* file_name = ask_correct_filename(ending);
 	if (!file_name)
 	{
 		return;
 	}
-	
+	log_trace("Download file call for '%s'", file_name);
+
 	//build path with filename
 	char* path = build_user_path(file_name);
 	printf("read file from path %s\n", path);
@@ -428,7 +430,7 @@ void download_file_call(const char* ending)
 	char encoded[20640];
 	len = Base64encode(encoded, p_buf, len);
 	printf("File: \n%s\n", encoded);
-	log_trace("Successfully sent file");
+	log_info("Successfully sent file");
 }
 
 void download_wav_file_call()
