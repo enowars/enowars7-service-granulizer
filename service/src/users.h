@@ -5,8 +5,9 @@
 
 
 #define MAX_LEN_USER_FILE 	65536
-#define MAX_USER_NAME_LEN 	64
-#define MAX_PWD_LEN 		64
+#define MAX_USER_NAME_LEN 	((int) 64)
+#define MAX_PWD_LEN 		((int) 64)
+#define MAX_DETAILS_LEN		((int) 64)
 
 /*
  *

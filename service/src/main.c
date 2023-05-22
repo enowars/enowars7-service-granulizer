@@ -106,8 +106,8 @@ bool login()
 void register_user()
 {
 	log_trace("Register call");
-	char* username  = ask("Username: ");
-	char* username_cpy = strdup(username);
+	char* username  	= ask("Username: ");
+	char* username_cpy 	= strdup(username);
 	log_trace("Entered user_name: %s", username_cpy);
 	if (!strcmp(username_cpy, ""))
 	{
@@ -116,8 +116,16 @@ void register_user()
 		free(username_cpy);
 		return;
 	}
-	char* password	= ask("Password: ");
-	char* password_cpy = strdup(password);
+	if (strlen(username_cpy) > MAX_USER_NAME_LEN)
+	{
+		log_warn("Username too long, abort");
+		printf("Username is too long, maximum allowed length is %i.\n", MAX_USER_NAME_LEN);
+		free(username_cpy);
+		return;
+	}
+
+	char* password		= ask("Password: ");
+	char* password_cpy 	= strdup(password);
 	log_trace("Entered password: %s", password_cpy);
 	if (!strcmp(password_cpy, ""))
 	{
@@ -127,8 +135,17 @@ void register_user()
 		free(password_cpy);
 		return;
 	}
-	char* details 	= ask("Please share some details about yourself: ");
-	char* details_cpy = strdup(details);
+	if (strlen(password_cpy) > MAX_PWD_LEN)
+	{
+		log_warn("Password too long, abort");
+		printf("Password is too long, maximum allowed length is %i.\n", MAX_PWD_LEN);
+		free(username_cpy);
+		free(password_cpy);
+		return;
+	}
+
+	char* details 		= ask("Please share some details about yourself: ");
+	char* details_cpy 	= strdup(details);
 	log_trace("Entered details: %s", details_cpy);
 	if (!strcmp(details_cpy, ""))
 	{
@@ -139,6 +156,16 @@ void register_user()
 		free(details_cpy);
 		return;
 	}
+	if (strlen(details_cpy) > MAX_DETAILS_LEN)
+	{
+		log_warn("Details too long, abort");
+		printf("Details are too long, maximum allowed length is %i.\n", MAX_DETAILS_LEN);
+		free(username_cpy);
+		free(password_cpy);
+		free(details_cpy);
+		return;
+	}
+	
 	//check if username does not exist
 	int res = load_user_file(); //load current user file
 	if (res)
