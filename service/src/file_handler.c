@@ -127,7 +127,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
  * @param p_data return pointer to memory
  * @return len of read bytes from file when successful, otherwise -1.
  */
-int read_pcm(char* file_name, char** p_data)
+int read_pcm(const char* file_name, char** p_data)
 {
     //read in complete file
     FILE* f = fopen(file_name, "rb");
@@ -151,8 +151,7 @@ int read_pcm(char* file_name, char** p_data)
     return (int) fsize;
 }
 
-
-int write_pcm(char* file_name, char* p_data, int len)
+int write_pcm(const char* file_name, char* p_data, const uint32_t len)
 {
     
     FILE* f = fopen(file_name, "wb");
@@ -236,7 +235,7 @@ int write_wav(const char* file_name, const char* p_data, const WavHeader* w_head
  * Example call: file_ends_with(str_input, ".wav")
  *
  */
-bool file_ends_with(char* str, char* ending)
+bool file_ends_with(const char* str, const char* ending)
 {
     if (!str || !ending) return false;
 
@@ -248,7 +247,7 @@ bool file_ends_with(char* str, char* ending)
     return false;
 }
 
-bool path_contains_illegal_chars(char* str)
+bool path_contains_illegal_chars(const char* str)
 {
     char illegal[] = {'/', '\\'};
     if (strchr(str, illegal[0]) == NULL)
