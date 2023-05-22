@@ -68,7 +68,6 @@ int scale_array(char* buf_in, char** buf_out, int buf_in_len, int factor)
 void print_granular_info(const granular_info* info)
 {
 	printf("granular_number_samples = %i\n", info->num_samples);
-    printf("grain_len = %i\n", info->grain_len);
 	printf("granular_order_samples = [");
 	for (int i=0; i < info->num_samples - 1; i++)
 	{
@@ -111,7 +110,6 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
 	info->order_samples 	= calloc(num_grains, sizeof(int));
 	info->order_timelens 	= calloc(num_grains, sizeof(int));
     info->order_buffer_lens = calloc(num_grains, sizeof(int));
-	info->grain_len = grains_len;
 
 	
     //random order of samples
@@ -131,7 +129,7 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     for (int i=0; i < num_grains; i++)
     {
         info->order_timelens[i] = possible_sample_lengths[rand() % num_possible_sample_lengths];
-        info->order_buffer_lens[i] = info->grain_len; //write correct buffer len for this grain
+        info->order_buffer_lens[i] = grains_len; //write correct buffer len for this grain
         int grains_len_here = grains_len;
         //change grains len if it is the last element
         if (i == (num_grains - 1))
