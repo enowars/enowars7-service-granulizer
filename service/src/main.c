@@ -35,9 +35,20 @@ char* ask(const char* prompt)
 	} else {
 		*buf = '\0';
 	}
-
 	return buf;
 }
+
+bool containsIllegalChars(const char* input, const int len) {
+    for (int i = 0; i < strnlen(input, len); i++)
+	{
+		if ((input[i] < 'a' || input[i] > 'z') && (input[i] < 'A' || input[i] > 'Z') && (input[i] < '0' || input[i] > '9'))
+		{
+            return true;
+        }
+    }
+    return false;
+}
+
 
 /**
  * Perform setup of service if the service does not exist yet.
@@ -73,33 +84,62 @@ void setup_service()
  * Login prompt and checking.
  * When succesful login, current_user will be placed with username.
  */
-bool login()
+bool login_user()
 {
-	char *username, *password;
+	char *username_cpy, *password_cpy;
 	log_trace("Login call");
 
-	char* username_tmp = ask("Username: ");
-	username = strdup(username_tmp);
-	log_trace("Entered user_name: %s", username);
-
-	char* password_tmp = ask("Password: ");
-	password = strdup(password_tmp);
-	log_trace("Entered password: %s", password);
-
-	if (exist_username_with_password(username, password))
+	char *username_tmp = ask("Username: ");
+	username_cpy = strdup(username_tmp);
+	log_trace("Entered user_name: %s", username_cpy);
+	if (!strcmp(username_cpy, ""))
 	{
-		printf("Welcome \'%s\'!\n", username);
-		log_trace("User '%s' successful login", username);
-		current_user = strdup(username);
-		free(username);
-		free(password);
+		log_warn("Entered username is empty, abort");
+		printf("Empty username is not allowed\n");
+		free(username_cpy);
+		return false;
+	}
+	if (containsIllegalChars(username_cpy, MAX_USER_NAME_LEN))
+	{
+		log_warn("Username contains illegal chars, abort");
+		printf("Username contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
+		free(username_cpy);
+		return false;
+	}
+
+	char *password_tmp = ask("Password: ");
+	password_cpy = strdup(password_tmp);
+	log_trace("Entered password: %s", password_cpy);
+	if (!strcmp(password_cpy, ""))
+	{
+		log_warn("Entered password is empty, abort");
+		printf("Empty password is not allowed\n");
+		free(username_cpy);
+		free(password_cpy);
+		return false;
+	}
+	if (containsIllegalChars(password_cpy, MAX_PWD_LEN))
+	{
+		log_warn("Password contains illegal chars, abort");
+		free(username_cpy);
+		free(password_cpy);
+		return false;
+	}
+
+	if (exist_username_with_password(username_cpy, password_cpy))
+	{
+		printf("Welcome \'%s\'!\n", username_cpy);
+		log_trace("User '%s' successful login", username_cpy);
+		current_user = strdup(username_cpy);
+		free(username_cpy);
+		free(password_cpy);
 		return true;
 	}
 
 	printf("Wrong password\n");
-	log_trace("User '%s' provided wrong credentials: %s", username, password);
-	free(username);
-	free(password);
+	log_trace("User '%s' provided wrong credentials: %s", username_cpy, password_cpy);
+	free(username_cpy);
+	free(password_cpy);
 	return false;
 }
 
@@ -123,6 +163,13 @@ void register_user()
 		free(username_cpy);
 		return;
 	}
+	if (containsIllegalChars(username_cpy, MAX_USER_NAME_LEN))
+	{
+		log_warn("Username contains illegal chars, abort");
+		printf("Username contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
+		free(username_cpy);
+		return;
+	}
 
 	char* password		= ask("Password: ");
 	char* password_cpy 	= strdup(password);
@@ -139,6 +186,14 @@ void register_user()
 	{
 		log_warn("Password too long, abort");
 		printf("Password is too long, maximum allowed length is %i.\n", MAX_PWD_LEN);
+		free(username_cpy);
+		free(password_cpy);
+		return;
+	}
+	if (containsIllegalChars(password_cpy, MAX_PWD_LEN))
+	{
+		log_warn("Password contains illegal chars, abort");
+		printf("Password contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
 		free(username_cpy);
 		free(password_cpy);
 		return;
@@ -165,7 +220,16 @@ void register_user()
 		free(details_cpy);
 		return;
 	}
-	
+	if (containsIllegalChars(details_cpy, MAX_DETAILS_LEN))
+	{
+		log_warn("Details contains illegal chars, abort");
+		printf("Details contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
+		free(username_cpy);
+		free(password_cpy);
+		free(details_cpy);
+		return;
+	}
+
 	//check if username does not exist
 	int res = load_user_file(); //load current user file
 	if (res)
@@ -277,11 +341,11 @@ void granulize_call()
 	int res;
 	if (file_mode == WAV)
 	{
-		strcat(file_name_complete, "granulized.wav\0");
+		strcat(file_name_complete, "granulized.wav");
 		res = write_wav(file_name_complete, new_sample, w_header, new_sample_len);
 	} else if (file_mode == PCM)
 	{
-		strcat(file_name_complete, "granulized.pcm\0");
+		strcat(file_name_complete, "granulized.pcm");
 		res = write_pcm(file_name_complete, new_sample, new_sample_len);
 	} else {
 		printf("Error, wrong file format");
@@ -368,12 +432,12 @@ void upload_file(char* ending)
 
 void upload_pcm_file_call()
 {
-	upload_file(".pcm\0");
+	upload_file(".pcm");
 }
 
 void upload_wav_file_call()
 {
-	upload_file(".wav\0");
+	upload_file(".wav");
 }
 
 
@@ -487,13 +551,13 @@ int main()
 
 	while (1)
 	{
-		char* in = ask("Hello! Do you want to login (l) or register (r)?\n >\0");
+		char* in = ask("Hello! Do you want to login (l) or register (r)?\n >");
 		if (!strcmp(in, "register") || !strcmp(in, "r"))
 		{
 			register_user();
 		} else if (!strcmp(in, "login") || !strcmp(in, "l"))
 		{
-			bool worked = login();
+			bool worked = login_user();
 			if (worked)
 			{
 				break; //enter main loop
