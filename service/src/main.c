@@ -15,6 +15,9 @@
 
 #define ARRSIZE(a) (sizeof(a)/sizeof(a[0]))
 
+//With .pcm / .wav ending, therefore a filename needs to have a minimum length of 5
+#define MIN_FILENAME_LEN ((int) 5)
+#define MAX_FILENAME_LEN ((int) 64 + 5)
 
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
@@ -378,12 +381,15 @@ void upload_file(const char* ending)
 		printf("File has to end with %s\n", ending);
 		return;
 	}
-	if (strlen(file_name_in) < 5)
+	if (strlen(file_name_in) < MIN_FILENAME_LEN || strlen(file_name_in) > MAX_FILENAME_LEN)
 	{
-		log_warn("File upload cancelled, filename too short");
-		printf("File name too short\n");
+		log_warn("File upload cancelled, filename has invalid length.");
+		printf("File upload cancelled, filename has invalid length. Only between %i - %i is allowed.\n", MIN_FILENAME_LEN, MAX_FILENAME_LEN);
 		return;
 	}
+
+	
+
 	if (path_contains_illegal_chars(file_name_in))
 	{
 		log_warn("File call cancelled: file contains illegal chars '%s'", file_name_in);
@@ -469,6 +475,13 @@ static char* ask_correct_filename(const char* file_ending)
 	{
 		log_warn("Download pcm aborted, filename does not end with %s: '%s'", file_ending, file_name);
 		printf("Error - filename does not end with %s\n", file_ending);
+		return NULL;
+	}
+	//check if filename is not too short or too long
+	if (strlen(file_name) < MIN_FILENAME_LEN || strlen(file_name) > MAX_FILENAME_LEN)
+	{
+		log_warn("File download cancelled, filename has invalid length.");
+		printf("File download cancelled, filename has invalid length. Only between %i - %i is allowed.\n", MIN_FILENAME_LEN, MAX_FILENAME_LEN);
 		return NULL;
 	}
 	
