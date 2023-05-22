@@ -125,7 +125,8 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     #define num_possible_sample_lengths 1
     int possible_sample_lengths[num_possible_sample_lengths] = {2};
     
-    int new_sample_len = 0; //len of new sample, iterating in loop
+    int sample_position = 0;
+    int new_sample_len = 0; //length of new sample
 
     for (int i=0; i < num_grains; i++)
     {
@@ -136,22 +137,22 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         if (i == (num_grains - 1))
         {
             //info->order_timelens = new_sample_
-            info->order_buffer_lens[i] = (buf_len - new_sample_len);
+            info->order_buffer_lens[i] = (buf_len - sample_position);
             printf("Timelen is here %i\n", info->order_timelens[i]);
             printf("Buf Len: %i\n", buf_len);
-            printf("Sample len: %i\n", new_sample_len);
+            printf("Sample len: %i\n", sample_position);
             printf("Buffer length of last (weird) element: %i\n", info->order_buffer_lens[i]);
             printf("Time factor of last (weird) element: %i\n", info->order_timelens[i]);
             assert(info->order_buffer_lens[i] + (num_grains - 1) * grains_len == buf_len);
         }
         //printf("Grains len here %i for %i\n", grains_len_here, i);
-        new_sample_len += grains_len_here; //calculate new sample size
+        new_sample_len += info->order_buffer_lens[i] * info->order_timelens[i]; //calculate new sample size
+        sample_position += grains_len_here;
     }
     
     //granular info is created, now granulize
     
     char* new_sample = calloc(new_sample_len, sizeof(char));
-    //printf("new sample len %i\n", new_sample_len);
 
     int next_index_for_writing = 0;
     for (int i=0; i < num_grains; i++)
