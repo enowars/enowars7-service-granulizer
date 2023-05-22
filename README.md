@@ -1,4 +1,4 @@
-# enowars7-service-supersynth
+# enowars7-service-granulizer
 Vulnerable granular synthesizer service 
 
 ## Service Description
