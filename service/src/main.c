@@ -13,11 +13,16 @@
 #include "file_handler.h"
 #include "log.c/log.h"
 
+
+
 #define ARRSIZE(a) (sizeof(a)/sizeof(a[0]))
 
 //With .pcm / .wav ending, therefore a filename needs to have a minimum length of 5
 #define MIN_FILENAME_LEN ((int) 5)
 #define MAX_FILENAME_LEN ((int) 64 + 5)
+
+//1Mb of maximum file size for downloading
+#define MAX_FILE_DOWNLOAD_LEN ((int) 1024 * 1024)
 
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
@@ -41,8 +46,8 @@ char* ask(const char* prompt)
 	return buf;
 }
 
-bool containsIllegalChars(const char* input, const int len) {
-    for (int i = 0; i < strnlen(input, len); i++)
+bool containsIllegalChars(const char* input) {
+    for (unsigned int i = 0; i < strlen(input); i++)
 	{
 		if ((input[i] < 'a' || input[i] > 'z') && (input[i] < 'A' || input[i] > 'Z') && (input[i] < '0' || input[i] > '9'))
 		{
@@ -102,7 +107,7 @@ bool login_user()
 		free(username_cpy);
 		return false;
 	}
-	if (containsIllegalChars(username_cpy, MAX_USER_NAME_LEN))
+	if (containsIllegalChars(username_cpy))
 	{
 		log_warn("Username contains illegal chars, abort");
 		printf("Username contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
@@ -121,7 +126,7 @@ bool login_user()
 		free(password_cpy);
 		return false;
 	}
-	if (containsIllegalChars(password_cpy, MAX_PWD_LEN))
+	if (containsIllegalChars(password_cpy))
 	{
 		log_warn("Password contains illegal chars, abort");
 		free(username_cpy);
@@ -166,7 +171,7 @@ void register_user()
 		free(username_cpy);
 		return;
 	}
-	if (containsIllegalChars(username_cpy, MAX_USER_NAME_LEN))
+	if (containsIllegalChars(username_cpy))
 	{
 		log_warn("Username contains illegal chars, abort");
 		printf("Username contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
@@ -193,7 +198,7 @@ void register_user()
 		free(password_cpy);
 		return;
 	}
-	if (containsIllegalChars(password_cpy, MAX_PWD_LEN))
+	if (containsIllegalChars(password_cpy))
 	{
 		log_warn("Password contains illegal chars, abort");
 		printf("Password contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
@@ -223,7 +228,7 @@ void register_user()
 		free(details_cpy);
 		return;
 	}
-	if (containsIllegalChars(details_cpy, MAX_DETAILS_LEN))
+	if (containsIllegalChars(details_cpy))
 	{
 		log_warn("Details contains illegal chars, abort");
 		printf("Details contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
@@ -277,6 +282,7 @@ void granulize_call()
 	if (!dot)
 	{
 		printf("File ending is missing\n");
+		return;
 	}
 	if (strcmp(dot, ".wav") && strcmp(dot, ".pcm"))
 	{
@@ -327,9 +333,19 @@ void granulize_call()
 	//handle data:
 	char *new_sample;
 	int new_sample_len;
-	const int bytes_per_sample = 256;
+	int bytes_per_sample;
+	int samplerate;
+	if (w_header)
+	{
+		samplerate = w_header->SampleRate;
+		bytes_per_sample = w_header->BitsPerSample / 8;
+	} else {
+		samplerate = -1;
+		bytes_per_sample = 1;
+	}
 
-	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample);
+	granular_info* info = granulize(p_data, len, &new_sample, 
+		&new_sample_len, bytes_per_sample, samplerate);
 
 	last_granular_info = info;
 
@@ -353,6 +369,10 @@ void granulize_call()
 	} else {
 		printf("Error, wrong file format");
 		log_error("no pcm or wav file for input, instead: %s", dot);
+	}
+	if (res)
+	{
+		//TODO error checking
 	}
 
 	printf("written to file %s\n", file_name_complete);
@@ -387,9 +407,6 @@ void upload_file(const char* ending)
 		printf("File upload cancelled, filename has invalid length. Only between %i - %i is allowed.\n", MIN_FILENAME_LEN, MAX_FILENAME_LEN);
 		return;
 	}
-
-	
-
 	if (path_contains_illegal_chars(file_name_in))
 	{
 		log_warn("File call cancelled: file contains illegal chars '%s'", file_name_in);
@@ -505,13 +522,20 @@ void download_file_call(const char* ending)
 	printf("read file from path %s\n", path);
 	char* path_cpy = strdup(path);
 	
-	//get file content
+	//get file content, read_pcm returns the complete binary data
 	char *p_buf;
-	int len = read_pcm(path_cpy, &p_buf);
+	int file_len = read_pcm(path_cpy, &p_buf);
 	
+	int approx_new_len = Base64encode_len(file_len);
+	if (approx_new_len >= MAX_FILE_DOWNLOAD_LEN)
+	{
+		log_warn("Download failed due to too big file size of %i instead of %i\n", approx_new_len, MAX_FILE_DOWNLOAD_LEN);
+		printf("Asked file is too big for downloading. Maximum supported size is %s\n");
+		return;
+	}
 	//b64 encode
-	char encoded[20640];
-	len = Base64encode(encoded, p_buf, len);
+	char encoded[MAX_FILE_DOWNLOAD_LEN]; //currently support 1Mb for debugging
+	file_len = Base64encode(encoded, p_buf, file_len);
 	printf("File: \n%s\n", encoded);
 	log_info("Successfully sent file");
 }
