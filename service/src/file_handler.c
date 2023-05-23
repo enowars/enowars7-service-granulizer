@@ -145,8 +145,6 @@ int read_pcm(const char* file_name, char** p_data)
 
     *p_data = data;
 
-    //p_data[fsize] = 0; //null terminate
-
     return (int) fsize;
 }
 

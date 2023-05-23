@@ -181,6 +181,8 @@ class GranulizerChecker(BaseChecker):
 
     def reverse_pcm(self, bytes_in: bytearray, granular_number_samples: int, granular_order_samples,
         granular_order_timelens, granular_order_buffer_lens):
+        
+        self.debug("Reverse pcm")
 
         grain_offset = 0
         grains_list = {}
@@ -204,7 +206,7 @@ class GranulizerChecker(BaseChecker):
             orig_data.append(grains_list.get(i))
         orig_data = self.flatten(orig_data)
         #convert into string:
-        self.debug("Reverse, orig_data flattened:")
+        self.debug("Reverse done, orig_data flattened:")
         self.debug(orig_data)
         d = bytes(orig_data)
         utf8_str = d.decode('utf-8')
@@ -321,6 +323,8 @@ class GranulizerChecker(BaseChecker):
             self.login_user(conn, username, password)
 
             # Put flag (.pcm file)
+            self.debug("Put flag:")
+            self.debug(self.flag)
             self.put_pcm(conn, flag_file_name, self.flag)
             
             # Save the generated values for the associated getflag() call.
