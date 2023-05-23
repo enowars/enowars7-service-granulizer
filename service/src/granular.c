@@ -22,7 +22,7 @@ static void shuffle(int *array, size_t n)
     }
 }
 
-int scale_array_custom_sample_length(char* buf_in, char** buf_out, int buf_in_len, int factor, int bytes_per_sample)
+static int scale_array_custom_sample_length(char* buf_in, char** buf_out, int buf_in_len, int factor, int bytes_per_sample)
 {
     if (factor < 1) {
         return -1;

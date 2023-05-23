@@ -301,7 +301,7 @@ void granulize_call()
 
 	int len;
 	char* p_data;
-	WavHeader* w_header;
+	WavHeader* w_header = NULL;
 	enum FILE_MODE file_mode;
 
 	if (!strcmp(dot, ".wav"))
