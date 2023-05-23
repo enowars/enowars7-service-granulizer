@@ -213,7 +213,6 @@ class GranulizerChecker(BaseChecker):
         #reconstructed_str = ''.join(char_array)
         #reconstructed_str = ''.join(orig_data)
         return utf8_str
-        return reconstructed_str
 
     def helper_parse_bytearray(self, byte_array):
         # Convert bytearray to string
