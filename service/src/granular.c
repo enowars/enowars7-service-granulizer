@@ -65,6 +65,17 @@ int scale_array(char* buf_in, char** buf_out, int buf_in_len, int factor)
     return factor * buf_in_len;
 }*/
 
+void destroy_granular_info(granular_info *g)
+{
+    if (g)
+    {
+        free(g->order_samples);
+        free(g->order_timelens);
+        free(g->order_buffer_lens);
+        free(g);
+    }
+}
+
 void print_granular_info(const granular_info* info)
 {
 	printf("granular_number_samples = %i\n", info->num_samples);

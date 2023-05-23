@@ -565,6 +565,17 @@ void account_call()
 	
 }
 
+void quit_call()
+{
+	//frees all used memory
+	free(current_user);
+	destroy_granular_info(last_granular_info);
+	
+	log_info("Freed all memory");
+	printf("Byeee\n");
+	exit(0);
+}
+
 void help_call()
 {
 	printf("upload wav - uploads a .wav file into own profile, encoded as base64\n");
@@ -574,7 +585,8 @@ void help_call()
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
 	printf("account - show account details\n");
-	printf("help - this prompt\n\n");
+	printf("help - this prompt\n");
+	printf("quit - quits (surprise)\n\n");
 }
 
 int main()
@@ -623,7 +635,8 @@ int main()
 		{ "granulize info\n", granulize_info_call },
 		{ "granulize\n", granulize_call },
 		{ "account\n", account_call },
-		{ "help\n", help_call }
+		{ "help\n", help_call },
+		{ "quit\n", quit_call }
 	};
 
 	char cmd[32];
