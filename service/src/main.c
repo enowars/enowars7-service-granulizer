@@ -531,6 +531,8 @@ void download_file_call(const char* ending)
 	{
 		log_warn("Download failed due to too big file size of %i instead of %i\n", approx_new_len, MAX_FILE_DOWNLOAD_LEN);
 		printf("Asked file is too big for downloading. Maximum supported size is %s\n");
+		free(path_cpy);
+		free(p_buf);
 		return;
 	}
 	//b64 encode
@@ -538,6 +540,9 @@ void download_file_call(const char* ending)
 	file_len = Base64encode(encoded, p_buf, file_len);
 	printf("File: \n%s\n", encoded);
 	log_info("Successfully sent file");
+	
+	free(path_cpy);
+	free(p_buf);
 }
 
 void download_wav_file_call()
