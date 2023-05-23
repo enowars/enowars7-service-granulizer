@@ -137,9 +137,10 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         grains_len -= (grains_len % bytes_per_sample);
         log_info("Adjusting grains len to %i", grains_len);
     }
+    log_trace("Input granular bytes length %i", buf_len);
     log_trace("Grains_len now %i", grains_len);
     log_trace("Num grains now %i", num_grains);
-
+    
 	granular_info* info = malloc(sizeof(granular_info));
 	info->num_samples = num_grains;
 	info->order_samples 	= calloc(num_grains, sizeof(int));
@@ -180,18 +181,29 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     char* new_sample = calloc(new_sample_len, sizeof(char));
 
     int next_index_for_writing = 0;
+    int index_offset = 0;
+
+    
+    int posSpecialGrain = info->order_samples[num_grains - 1];
+
     for (int i=0; i < num_grains; i++)
     {
         //add grain
 
-        //create new longer sample, scaled as wished by new timelength
-        char* buf_new;
+        //create new longer grain, scaled as wished by new timelength
+        char* buf_new; //new grain stored here
+        //int index_offset = info->order_samples[i] * grains_len; //old
+        index_offset += grains_len;
         int index = info->order_samples[i] * grains_len;
+        int new_index = info->order_samples[i];
+        
         int grains_len_here = grains_len;
-        if (info->order_samples[i] == (num_grains - 1))
+        if (i == (num_grains - 1))
         { //special case for last grain, this has a different length
-            grains_len_here = buf_len - (grains_len * (num_grains -1));
+            grains_len_here = buf_len - index_offset;
+            log_trace("Detected special case");
         }
+        log_trace("Write index %i, grains len: %i", index, grains_len_here);
         int res = scale_array_custom_sample_length(buf + index, &buf_new, grains_len_here, info->order_timelens[i], bytes_per_sample);
 
         //TODO proper error handling
@@ -201,7 +213,7 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         }
         memcpy(new_sample + next_index_for_writing, buf_new, grains_len_here * info->order_timelens[i]);
         next_index_for_writing += grains_len_here * info->order_timelens[i];
-        
+        log_trace("Grain created");
     }
 
     *buf_out = new_sample;
