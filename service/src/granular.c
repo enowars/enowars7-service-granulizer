@@ -7,7 +7,7 @@
 #include <string.h>
 #include "log.c/log.h"
 
-void shuffle(int *array, size_t n)
+static void shuffle(int *array, size_t n)
 {
     if (n > 1) 
     {
@@ -22,55 +22,8 @@ void shuffle(int *array, size_t n)
     }
 }
 
-/**
- * @brief 
- * 
- * @param array Array to be shuffled 
- * @param n Number items in array
- * @param size size of each item
- */
-static void shuffle_general(void *array, size_t n, size_t size) {
-    if (n > 1) {
-        for (size_t i = 0; i < n - 1; i++) {
-            size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
-            char *a = (char *)array + i * size;
-            char *b = (char *)array + j * size;
-            for (size_t k = 0; k < size; k++) {
-                char temp = a[k];
-                a[k] = b[k];
-                b[k] = temp;
-            }
-        }
-    }
-}
-
-int scale_array_custom_sample_length_uint32(uint32_t* buf_in, uint32_t** buf_out, int buf_in_len, int factor, int bytes_per_sample)
-{
-    if (factor < 1) {
-        return -1;
-    }
-
-    int num_samples = buf_in_len / bytes_per_sample;
-    int offset = 0;
-    //create new array which is "factor" bigger
-    uint32_t *buf = malloc(buf_in_len * sizeof(uint32_t) * factor);
-
-    for (int i=0; i < num_samples; i++)
-    {
-        for (int j=0; j < factor; j++) {
-            memcpy(buf + offset, buf_in + i * bytes_per_sample, bytes_per_sample);
-            offset += bytes_per_sample;
-        }
-    }
-
-    *buf_out = buf;
-    return factor * buf_in_len;
-}
-
-
 int scale_array_custom_sample_length(char* buf_in, char** buf_out, int buf_in_len, int factor, int bytes_per_sample)
 {
-    //printf("buf_in_len: %i, factor: %i\n", buf_in_len, factor);
     if (factor < 1) {
         return -1;
     }
@@ -92,7 +45,7 @@ int scale_array_custom_sample_length(char* buf_in, char** buf_out, int buf_in_le
     return factor * buf_in_len;
 }
 
-
+/*
 int scale_array(char* buf_in, char** buf_out, int buf_in_len, int factor)
 {
     //printf("buf_in_len: %i, factor: %i\n", buf_in_len, factor);
@@ -110,7 +63,7 @@ int scale_array(char* buf_in, char** buf_out, int buf_in_len, int factor)
 
     *buf_out = buf;
     return factor * buf_in_len;
-}
+}*/
 
 void print_granular_info(const granular_info* info)
 {
@@ -138,120 +91,7 @@ void print_granular_info(const granular_info* info)
     
 }
 
-granular_info* granulize_int(const uint32_t* buf, const int buf_len, uint32_t** buf_out, int* len_out, const unsigned int bytes_per_sample)
-{
-    log_trace("Starting granulize algorithm for uint32_t data");
 
-	int num_grains = 100;
-	if (buf_len < num_grains)
-    {
-        num_grains = buf_len;
-    }
-
-    int grains_len = buf_len / num_grains;
-
-	granular_info* info = malloc(sizeof(granular_info));
-	info->num_samples = num_grains;
-	info->order_samples 	= calloc(num_grains, sizeof(int));
-	info->order_timelens 	= calloc(num_grains, sizeof(int));
-    info->order_buffer_lens = calloc(num_grains, sizeof(int));
-
-    //random order of samples
-	for (int i=0; i < num_grains; i++)
-	{
-		info->order_samples[i] = i;
-	}
-    shuffle(info->order_samples, num_grains);
-
-    //random length of each sample
-    #define num_possible_sample_lengths 1
-    int possible_sample_lengths[num_possible_sample_lengths] = {2};
-    
-    int sample_position = 0;
-    int new_sample_len = 0; //length of new sample
-
-    for (int i=0; i < num_grains; i++)
-    {
-        info->order_timelens[i] = possible_sample_lengths[rand() % num_possible_sample_lengths];
-        info->order_buffer_lens[i] = grains_len; //write correct buffer len for this grain
-        int grains_len_here = grains_len;
-        //change grains len if it is the last element
-        if (i == (num_grains - 1))
-        {
-            //info->order_timelens = new_sample_
-            info->order_buffer_lens[i] = (buf_len - sample_position);
-            //printf("Timelen is here %i\n", info->order_timelens[i]);
-            //printf("Buf Len: %i\n", buf_len);
-            //printf("Sample len: %i\n", sample_position);
-            //printf("Buffer length of last (weird) element: %i\n", info->order_buffer_lens[i]);
-            //printf("Time factor of last (weird) element: %i\n", info->order_timelens[i]);
-            assert(info->order_buffer_lens[i] + (num_grains - 1) * grains_len == buf_len);
-        }
-        //printf("Grains len here %i for %i\n", grains_len_here, i);
-        new_sample_len += info->order_buffer_lens[i] * info->order_timelens[i]; //calculate new sample size
-        sample_position += grains_len_here;
-    }
-    
-    //granular info is created, now granulize
-    log_trace("Start granulizing all samples together");
-
-    uint32_t* new_sample = calloc(new_sample_len, sizeof(uint32_t));
-    int next_index_for_writing = 0;
-    for (int i=0; i < num_grains; i++)
-    {
-        //add grain
-
-        //create new longer sample, scaled as wished by new timelength
-        uint32_t* buf_new;
-        int index = info->order_samples[i] * grains_len;
-        int grains_len_here = grains_len;
-        if (info->order_samples[i] == (num_grains - 1))
-        { //special case for last grain, this has a different length
-            grains_len_here = buf_len - (grains_len * (num_grains -1));
-            //printf("special grain len: %i\n", grains_len_here);
-        }
-        //int res = scale_array_custom_sample_length(buf + index, &buf_new, grains_len_here, info->order_timelens[i], bytes_per_sample);
-//        int res = scale_array(buf + index, &buf_new, grains_len_here, info->order_timelens[i]);
-        int res = scale_array_custom_sample_length_uint32(buf + index, &buf_new, grains_len_here, info->order_timelens[i], 4);
-        //TODO proper error handling
-        if (res)
-        {
-
-        }
-        memcpy(new_sample + next_index_for_writing, buf_new, grains_len_here * info->order_timelens[i]);
-        next_index_for_writing += grains_len_here * info->order_timelens[i];
-    }
-
-    *buf_out = new_sample;
-    *len_out = new_sample_len;
-
-	return info;
-}
-
-granular_info* granulize_different_bytes_depth(const char* buf, const int buf_len, char** buf_out, int* len_out, const unsigned int bytes_per_sample)
-{
-    log_trace("Start granulize custom bytes depth algorithm");
-    if (bytes_per_sample != 4)
-    { //convert char* buf into uint32_t* buf 
-        log_warn("Bytes depth of %i is not supported for granulizing", bytes_per_sample);
-        return NULL;
-    }
-    if (buf_len % 4 != 0)
-    {
-        log_warn("Unaligned buf length in granulizing: buf_len (%i) %% 4 = %i", buf_len, (buf_len % 4) );
-        return NULL;
-    }
-    //now convert char* to uint32_t buffer
-    uint32_t* uintBuffer = malloc(sizeof(uint32_t) * (buf_len / 4));
-    for (int i = 0; i < buf_len; i += 4) {
-        uint32_t uintValue = (buf[i] << 24) | (buf[i+1] << 16) | (buf[i+2] << 8) | buf[i+3];
-        uintBuffer[i/4] = uintValue;
-    }
-
-    return granulize_int(buf, buf_len, buf_out, len_out, bytes_per_sample);
-    
-    
-}
 
 /**
  * @brief 
@@ -304,8 +144,8 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     shuffle(info->order_samples, num_grains);
 
     //random length of each sample
-    #define num_possible_sample_lengths 1
-    int possible_sample_lengths[num_possible_sample_lengths] = {2};
+    #define num_possible_sample_lengths 2
+    int possible_sample_lengths[num_possible_sample_lengths] = {2, 4};
     
     int sample_position = 0;
     int new_sample_len = 0; //length of new sample
@@ -318,22 +158,14 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         //change grains len if it is the last element
         if (i == (num_grains - 1))
         {
-            //info->order_timelens = new_sample_
             info->order_buffer_lens[i] = (buf_len - sample_position);
-            //printf("Timelen is here %i\n", info->order_timelens[i]);
-            //printf("Buf Len: %i\n", buf_len);
-            //printf("Sample len: %i\n", sample_position);
-            //printf("Buffer length of last (weird) element: %i\n", info->order_buffer_lens[i]);
-            //printf("Time factor of last (weird) element: %i\n", info->order_timelens[i]);
             assert(info->order_buffer_lens[i] + (num_grains - 1) * grains_len == buf_len);
         }
-        //printf("Grains len here %i for %i\n", grains_len_here, i);
         new_sample_len += info->order_buffer_lens[i] * info->order_timelens[i]; //calculate new sample size
         sample_position += grains_len_here;
     }
     
     //granular info is created, now granulize
-    
     char* new_sample = calloc(new_sample_len, sizeof(char));
 
     int next_index_for_writing = 0;
@@ -348,10 +180,8 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         if (info->order_samples[i] == (num_grains - 1))
         { //special case for last grain, this has a different length
             grains_len_here = buf_len - (grains_len * (num_grains -1));
-            //printf("special grain len: %i\n", grains_len_here);
         }
         int res = scale_array_custom_sample_length(buf + index, &buf_new, grains_len_here, info->order_timelens[i], bytes_per_sample);
-        //int res = scale_array(buf + index, &buf_new, grains_len_here, info->order_timelens[i]);
 
         //TODO proper error handling
         if (res)
