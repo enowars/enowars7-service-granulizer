@@ -459,7 +459,8 @@ class GranulizerChecker(BaseChecker):
             self.debug(data)
 
             #reverse
-            reversed = self.reverse_pcm(data, 
+            reversed = self.reverse_pcm(
+                data, 
                 granulize_params['granular_number_samples'], 
                 granulize_params['granular_order_samples'],
                 granulize_params['granular_order_timelens'],
