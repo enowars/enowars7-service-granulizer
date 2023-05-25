@@ -344,8 +344,7 @@ void granulize_call()
 		bytes_per_sample = 1;
 	}
 
-	granular_info* info = granulize(p_data, len, &new_sample, 
-		&new_sample_len, bytes_per_sample, samplerate);
+	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, 1);
 
 	last_granular_info = info;
 
