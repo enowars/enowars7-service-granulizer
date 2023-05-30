@@ -529,9 +529,9 @@ void download_file_call(const char* ending)
 	if (approx_new_len >= MAX_FILE_DOWNLOAD_LEN)
 	{
 		log_warn("Download failed due to too big file size of %i instead of %i\n", approx_new_len, MAX_FILE_DOWNLOAD_LEN);
-		printf("Asked file is too big for downloading. Maximum supported size is %s\n");
-		free(path_cpy);
+		printf("Asked file is too big for downloading. Maximum supported size is %i\n", MAX_FILE_DOWNLOAD_LEN);
 		free(p_buf);
+		free(path_cpy);
 		return;
 	}
 	//b64 encode
@@ -540,21 +540,21 @@ void download_file_call(const char* ending)
 	printf("File: \n%s\n", encoded);
 	log_info("Successfully sent file");
 	
-	free(path_cpy);
 	free(p_buf);
+	free(path_cpy);
 }
 
-void download_wav_file_call()
+static void download_wav_file_call()
 {
 	download_file_call(".wav");
 }
 
-void download_pcm_file_call()
+static void download_pcm_file_call()
 {
 	download_file_call(".pcm");
 }
 
-void granulize_info_call()
+static void granulize_info_call()
 {
 	if (last_granular_info)
 	{
@@ -564,12 +564,12 @@ void granulize_info_call()
 	}
 }
 
-void account_call()
+static void account_call()
 {
 	
 }
 
-void quit_call()
+static void quit_call()
 {
 	//frees all used memory
 	free(current_user);
@@ -580,7 +580,7 @@ void quit_call()
 	exit(0);
 }
 
-void help_call()
+static void help_call()
 {
 	printf("upload wav - uploads a .wav file into own profile, encoded as base64\n");
 	printf("upload pcm - uploads a .pcm (pulse-code modulation) file into own profile, encoded as base64\n");

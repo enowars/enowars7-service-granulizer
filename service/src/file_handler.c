@@ -148,7 +148,7 @@ int read_pcm(const char* file_name, char** p_data)
     return (int) fsize;
 }
 
-int write_pcm(const char* file_name, char* p_data, const uint32_t len)
+int write_pcm(const char* file_name, char* p_data, uint32_t len)
 {
     
     FILE* f = fopen(file_name, "wb");
@@ -163,7 +163,7 @@ int write_pcm(const char* file_name, char* p_data, const uint32_t len)
     return 0;
 }
 
-int write_wav(const char* file_name, const char* p_data, const WavHeader* w_header, const uint32_t len)
+int write_wav(const char* file_name, const char* p_data, const WavHeader* w_header, uint32_t len)
 {
     log_debug("Start .wav file writing");
 
