@@ -40,6 +40,27 @@ int generate_random_num(int lower, int upper) {
     return shifted_num;
 }
 
+void reverse(const char* buf, char** buf_out, int buf_len, int block_size) {
+    char* reversed = malloc(sizeof(char) * buf_len);
+    int start = 0;
+    int end = block_size - 1;
+
+    while (end < buf_len) {
+        for (int i = end; i >= start; i--) {
+            reversed[buf_len - i - 1] = buf[i];
+        }
+        start += block_size;
+        end += block_size;
+    }
+
+    if (start < buf_len) {
+        for (int i = buf_len - 1; i >= start; i--) {
+            reversed[buf_len - i - 1] = buf[i];
+        }
+    }
+    *buf_out = reversed;
+}
+
 
 static int scale_array_custom_sample_length(const char* buf_in, char** buf_out, int buf_in_len, int factor, int bytes_per_sample)
 {
@@ -273,8 +294,15 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     for (int i = 0; i < num_grains; i++)
     {
         grain *g = grains[i];
-        //time reversing
-
+        //time reversing of grain
+        if (g->used_time_factor < 0)
+        {
+            char *buf_reversed;
+            reverse(g->buf, &buf_reversed, g->buf_len, bytes_per_sample);
+            
+            free(g->buf);
+            g->buf = buf_reversed;
+        }
         //time factor adjusting
         int abs_time_factor = abs(g->used_time_factor);
         char *buf_new = malloc(g->buf_len * abs_time_factor * sizeof(char));

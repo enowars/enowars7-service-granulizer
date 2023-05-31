@@ -2,57 +2,46 @@
 #include <string.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "../src/file_handler.h"
 #include "../src/granular.h"
 #include "../src/log.c/log.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-void reverse(char* str, int block_size) {
-    int len = strlen(str);
-    char* reversed = malloc(sizeof(char) * len + 1);
-    int start = 0;
-    int end = block_size - 1;
-
-    while (end < len) {
-        for (int i = end; i >= start; i--) {
-            reversed[len - i - 1] = str[i];
-        }
-        start += block_size;
-        end += block_size;
+assert_reversed(char *a, char *b, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        log_trace("Checking a[%i] (%i) == b[%i] (%i)", i, a[i], 
+            len - i -1, b[len - i - 1]);
+        assert(a[i] == b[len - i - 1]);
     }
-
-    if (start < len) {
-        for (int i = len - 1; i >= start; i--) {
-            reversed[len - i - 1] = str[i];
-        }
-    }
-    reversed[len] = '\0';
-    strcpy(str, reversed);
-    free(reversed);
 }
 
-int main() {
+int test_reverse_small()
+{
+    log_info("Starting test_reverse_small");
     char str[] = "aabbccddee";
+    int str_len = 11;
     int block_size = 2;
-    reverse(str, block_size);
-    printf("%s", str);
-    return 0;
+    char* buf_out;
+    reverse(str, &buf_out, str_len, block_size);
+    assert_reversed(str, buf_out, str_len);
+    log_info("Finished test_reverse_small");
 }
 
-/**
+
 int test_short_sample()
 {
     log_info("Starting test_short_sample");
 
-    char buf[] = "AABBCCDDEEF";
-    char buf_len = 11;
+    char buf[] = "AABBCCDDEEFFGGHHIIJJKKLL";
+    char buf_len = 24;
     char *buf_out;
     int *len_out;
-    granulize_v2(buf, buf_len, &buf_out, &len_out, 2, 1);
+    granulize_v2(buf, buf_len, &buf_out, &len_out, 2, 10);
+
     log_info("Finished test_short_sample");
     return 0;
 }
@@ -62,11 +51,16 @@ int main()
     log_info("Starting tests");
     //granulize_v2
     
-    int res = test_short_sample();
+    int res;
+    res = test_reverse_small();
+    if (res != 0)
+    {
+        log_error("Failed: test_reverse_small");
+    }
+    res = test_short_sample();
     if (res != 0)
     {
         log_error("Failed: test_short_sample");
     }
     log_info("Finished tests");
 }
-*/
