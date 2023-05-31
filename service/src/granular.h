@@ -21,20 +21,33 @@ typedef struct granular_info {
 
 typedef struct grain {
 	/**
-	 * Content of original grain
+	 * Content of grain. 
+	 * Depending on state in program, it either contains the original grain or the modified.
 	 */
 	char* buf;
 	/**
-	 * Number of bytes of original grain
+	 * Number of bytes of grain
 	 */
 	int buf_len;
+	
+	/**
+	 * Content of buffer before grain, for better overlapping effects.
+	 */
+	char *buf_before;
+	int buf_before_len;
 
 	/**
-	 * Original position of the grain
+	 * Content of buffer after grain, for better overlapping effects.
+	 */
+	char *buf_after;
+	int buf_after_len;
+
+	/**
+	 * Original position of the grain, in units of grains (not bytes).
 	 */
 	int orig_pos;
 	/**
-	 * @brief Used time factor on this grain
+	 * Applied time factor on this grain.
 	 */
 	int used_time_factor;
 } grain;

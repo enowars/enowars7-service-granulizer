@@ -163,7 +163,10 @@ void grain_print_complete(grain *g)
     if (g)
     {
         printf("Buffer pointer: %p\n", g->buf);
-        printf("Grain size: %i\n", g->buf_len);
+        printf("Grain buf_len: %i\n", g->buf_len);
+        printf("Grain buf_len_before: %i\n", g->buf_before_len);
+        printf("Grain buf_len_after: %i\n", g->buf_after_len);
+        
         printf("Grains original position: %i\n", g->orig_pos);
         printf("Grains applied timefactor: %i\n", g->used_time_factor);
         if (g->buf_len >= 1)
@@ -174,7 +177,24 @@ void grain_print_complete(grain *g)
                 printf("%i, ", g->buf[i]);
             }
             printf("%i]\n", g->buf[g->buf_len - 1]);
-            
+        }
+        if (g->buf_before_len >= 1)
+        {
+            printf("Grain buffer_before: [");
+            for (int i=0; i < g->buf_before_len - 1; i++)
+            {
+                printf("%i, ", g->buf_before[i]);
+            }
+            printf("%i]\n", g->buf_before[g->buf_before_len - 1]);
+        }
+        if (g->buf_after_len >= 1)
+        {
+            printf("Grain buffer_after: [");
+            for (int i=0; i < g->buf_after_len - 1; i++)
+            {
+                printf("%i, ", g->buf_after[i]);
+            }
+            printf("%i]\n", g->buf_after[g->buf_after_len - 1]);
         }
         printf("\n");
     }
@@ -198,6 +218,8 @@ void grain_destroy(grain *g)
     }
 
     free(g->buf);
+    free(g->buf_before);
+    free(g->buf_after);
     free(g);
 }
 
@@ -246,27 +268,78 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     //create grains:
     grain *grains[num_grains];
 
+
+    const int grain_overlapping_len = grain_len;
+
     for (int i=0; i < num_grains -1; i++)
     { //even sized grains
         grain *g = grain_create();
-        g->buf_len = grain_len;
         g->orig_pos = i;
+
+        //create actual grain
+        g->buf_len = grain_len;
         g->buf = malloc(g->buf_len * sizeof(char));
-        
-        void* p_to_cpy_from = buf + i * grain_len;
+        int offset_bytes = i * grain_len * sizeof(char);
+        void* p_to_cpy_from = buf + offset_bytes;
         memcpy(g->buf, p_to_cpy_from, g->buf_len);
+        
+        //fill buffer before the actual grain
+        int offset_bytes_before = offset_bytes - grain_len;
+        int buf_before_len = grain_len; //TODO change, depending on how you want the overlapping
+        if (offset_bytes_before < 0)
+        {
+            offset_bytes_before = offset_bytes;
+            buf_before_len = offset_bytes;
+        }
+        log_trace("Buf before, Len: %i, offset: %i", buf_before_len, offset_bytes_before);
+        g->buf_before = malloc(buf_before_len * sizeof(char));
+        p_to_cpy_from = buf + offset_bytes_before;
+        memcpy(g->buf_before, p_to_cpy_from, buf_before_len);
+        g->buf_before_len = buf_before_len;
+        
+        //fill buffer after the actual grain
+        int offset_bytes_after = offset_bytes + grain_len; //start position
+        int buf_after_len = grain_len; //TODO change, depending on how you want the overlapping
+        if (offset_bytes_after + buf_after_len > buf_len)
+        {
+            buf_after_len = buf_len - offset_bytes_after;
+        }
+        log_trace("Buf after, Len: %i, offset: %i", buf_after_len, offset_bytes_after);
+        g->buf_after = malloc(buf_after_len * sizeof(char));
+        p_to_cpy_from = buf + offset_bytes_after;
+        memcpy(g->buf_after, p_to_cpy_from, buf_after_len);
+        g->buf_after_len = buf_after_len;
 
         log_trace("New grain created for index %i", i);
         grains[i] = g;
     }
     //last special shorter grain
     grain *g = grain_create();
-    g->buf_len = buf_len - (grain_len * (num_grains -1));
+    int offset_bytes = (num_grains -1) * grain_len * sizeof(char);
+    g->buf_len = buf_len - offset_bytes;
     g->buf = malloc(sizeof(g->buf_len * sizeof(char)));
     g->orig_pos = num_grains-1;
     void* p_to_cpy_from = buf + (num_grains -1) * grain_len;
     memcpy(g->buf, p_to_cpy_from, g->buf_len);
     grains[num_grains - 1] = g;
+    //write before & after buffer for this grain
+    int offset_bytes_before = offset_bytes - grain_len;
+    int buf_before_len = grain_len; //TODO change, depending on how you want the overlapping
+    if (offset_bytes_before < 0)
+    {
+        offset_bytes_before = offset_bytes;
+        buf_before_len = offset_bytes;
+    }
+    log_trace("Buf before, Len: %i, offset: %i", buf_before_len, offset_bytes_before);
+    g->buf_before = malloc(buf_before_len * sizeof(char));
+    p_to_cpy_from = buf + offset_bytes_before;
+    memcpy(g->buf_before, p_to_cpy_from, buf_before_len);
+    g->buf_before_len = buf_before_len;
+    //fill buffer after the actual grain with 0, since it is the last grain
+    g->buf_after_len = 0;
+    g->buf_after = NULL;
+    //done creating all grains
+
 
     //debug grains array:
     for (int i = 0; i < num_grains; i++)
@@ -303,6 +376,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
             free(g->buf);
             g->buf = buf_reversed;
         }
+
         //time factor adjusting
         int abs_time_factor = abs(g->used_time_factor);
         char *buf_new = malloc(g->buf_len * abs_time_factor * sizeof(char));
@@ -317,6 +391,9 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         g->buf = buf_new;
         g->buf_len = g->buf_len * abs_time_factor;
     }
+
+    //build overlapping of grains
+
     
     for (int i = 0; i < num_grains; i++) //debug
     {
