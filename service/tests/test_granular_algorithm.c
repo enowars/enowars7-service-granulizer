@@ -36,11 +36,11 @@ int test_short_sample()
 {
     log_info("Starting test_short_sample");
 
-    char buf[] = "AABBCCDDEEFFGGHHIIJJKKLL";
-    char buf_len = 24;
+    char buf[] = "AABBCCDDEEFFGGHHIIJJKKLLI";
+    char buf_len = 23;
     char *buf_out;
     int *len_out;
-    granulize_v2(buf, buf_len, &buf_out, &len_out, 2, 10);
+    granulize_v2(buf, buf_len, &buf_out, &len_out, 8, 1);
 
     log_info("Finished test_short_sample");
     return 0;
