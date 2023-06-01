@@ -17,6 +17,27 @@ typedef struct granular_info {
 	int* order_buffer_lens;
 } granular_info;
 
+typedef struct grain {
+	/**
+	 * Content of grain. 
+	 * Depending on state in program, it either contains the original grain or the modified.
+	 */
+	char* buf;
+	/**
+	 * Number of bytes of grain
+	 */
+	int buf_len;
+
+	/**
+	 * Original position of the grain, in units of grains (not bytes).
+	 */
+	int orig_pos;
+	/**
+	 * Applied time factor on this grain.
+	 */
+	int used_time_factor;
+} grain;
+
 
 void destroy_granular_info(granular_info *g);
 
