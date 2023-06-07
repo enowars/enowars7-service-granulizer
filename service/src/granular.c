@@ -157,14 +157,16 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
     //grains_len has to be minimum bytes_per_sample, choose length so it is
     const int target_grains_per_s = 10;
     int minimum_grain_number = (int) (ceil((double) buf_len / (double) bytes_per_sample)); //minimum possible number of grains when bytes_per_sample are still regarded
-    int num_grains = (minimum_grain_number / samplerate * target_grains_per_s);
+    //int num_grains = (int)((double)minimum_grain_number / (double)(samplerate * target_grains_per_s));
+    int num_grains = (int) ((double)buf_len / (double) samplerate * (double)target_grains_per_s);
     if (num_grains > minimum_grain_number)
     {
+        log_trace("Changing num grains due to set limit");
         num_grains = minimum_grain_number;
     }
-
+    log_trace("Minimum grain number: %i, num_grains: %i", minimum_grain_number, num_grains);
     int grain_len = buf_len / num_grains; //length of a normal grain, TODO ändern
-    log_trace("Num_grains: %i, grain_len: %i (minimum_grain_number: %i)", num_grains, grain_len, minimum_grain_number);
+    log_trace("grain_len: %i", num_grains, grain_len, minimum_grain_number);
     if ((grain_len % bytes_per_sample) != 0)
     {
         //log_warn("Grain_len (%i) is not a multiple of bytes_per_sample (%i)! This could lead to weird errors", grain_len, bytes_per_sample);
