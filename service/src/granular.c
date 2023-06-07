@@ -9,7 +9,7 @@
 #include "log.c/log.h"
 
 
-static void grain_print(grain *g)
+void grain_print(grain *g)
 {
     if (g)
     {
@@ -18,7 +18,7 @@ static void grain_print(grain *g)
     }
 }
 
-static void grain_print_complete(grain *g)
+void grain_print_complete(grain *g)
 {
     if (g)
     {
@@ -56,24 +56,12 @@ static void grain_destroy(grain *g)
     {
         return;
     }
-
-    free(g->buf);
-    free(g);
-}
-
-static void shuffle(int *array, size_t n)
-{
-    if (n > 1) 
+    if (g->buf)
     {
-        size_t i;
-        for (i = 0; i < n - 1; i++) 
-        {
-          size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
-          int t = array[j];
-          array[j] = array[i];
-          array[i] = t;
-        }
+        free(g->buf);
+        g->buf = NULL;
     }
+    free(g);
 }
 
 static void shuffle_pointer(void** array, size_t n) {
@@ -114,9 +102,21 @@ void destroy_granular_info(granular_info *g)
 {
     if (g)
     {
-        free(g->order_samples);
-        free(g->order_timelens);
-        free(g->order_buffer_lens);
+        if (g->order_samples)
+        {
+            free(g->order_samples);
+            g->order_samples = NULL;
+        }
+        if (g->order_timelens) 
+        {
+            free(g->order_timelens);
+            g->order_timelens = NULL;
+        }
+        if (g->order_buffer_lens) 
+        {
+            free(g->order_buffer_lens);
+            g->order_buffer_lens = NULL;
+        }
         free(g);
     }
 }
@@ -148,14 +148,14 @@ void print_granular_info(const granular_info* info)
     
 }
 
-granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int* len_out, 
+granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_out, 
     const unsigned int bytes_per_sample, const int samplerate)
 {
     log_trace("Starting granulize algorithm with params: buf_len %i, bytes_per_sample %i, samplerate: %i", 
         buf_len, bytes_per_sample, samplerate);
     
     //grains_len has to be minimum bytes_per_sample, choose length so it is
-    const int target_grains_per_s = 1;
+    const int target_grains_per_s = 10;
     int minimum_grain_number = (int) (ceil((double) buf_len / (double) bytes_per_sample)); //minimum possible number of grains when bytes_per_sample are still regarded
     int num_grains = (minimum_grain_number / samplerate * target_grains_per_s);
     if (num_grains > minimum_grain_number)
@@ -163,12 +163,18 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         num_grains = minimum_grain_number;
     }
 
-    int grain_len = bytes_per_sample; //length of a normal grain, TODO ändern
-    log_trace("Num_grains: %i, grain_len: %i, minimum_grain_number: %i", num_grains, grain_len, minimum_grain_number);
+    int grain_len = buf_len / num_grains; //length of a normal grain, TODO ändern
+    log_trace("Num_grains: %i, grain_len: %i (minimum_grain_number: %i)", num_grains, grain_len, minimum_grain_number);
     if ((grain_len % bytes_per_sample) != 0)
     {
-        log_warn("Grain_len (%i) is not a multiple of bytes_per_sample (%i)! This could lead to weird errors", grain_len, bytes_per_sample);
+        //log_warn("Grain_len (%i) is not a multiple of bytes_per_sample (%i)! This could lead to weird errors", grain_len, bytes_per_sample);
     }
+    if (num_grains <= 1)
+    {
+        return NULL;
+    }
+    
+
     //create granular info for returning:
     granular_info* info = malloc(sizeof(granular_info));
 	if (!info)
@@ -179,59 +185,123 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
 	info->order_samples 	= calloc(num_grains, sizeof(int));
 	if (!info->order_samples)
     {
+        destroy_granular_info(info);
         return NULL;
     }
     info->order_timelens 	= calloc(num_grains, sizeof(int));
     if (!info->order_timelens)
     {
+        destroy_granular_info(info);
         return NULL;
     }
     info->order_buffer_lens = calloc(num_grains, sizeof(int));
     if (!info->order_buffer_lens)
     {
+        destroy_granular_info(info);
         return NULL;
     }
 
     //create grains:
     grain *grains[num_grains];
-
-    const int grain_overlapping_len = grain_len;
-
+    for (int i=0; i < num_grains; i++)
+    {
+        grains[i] = NULL;
+    }
+    
     for (int i=0; i < num_grains -1; i++)
     { //even sized grains
         grain *g = grain_create();
+        if (!g)
+        {
+            for (int i=0; i < num_grains; i++) //cleanup
+            {
+                if (grains[i] != NULL)
+                {
+                    grain_destroy(grains[i]);
+                    grains[i] = NULL;
+                }
+            }
+            destroy_granular_info(info);
+            log_error("Error creating grain");
+            return NULL;
+        }
         g->orig_pos = i;
 
         //create actual grain
         g->buf_len = grain_len;
         g->buf = malloc(g->buf_len * sizeof(char));
+        if (!g->buf)
+        { //abort
+            for (int i=0; i < num_grains; i++) 
+            { //cleanup
+                if (grains[i] != NULL)
+                {
+                    grain_destroy(grains[i]);
+                    grains[i] = NULL;
+                }
+            }
+            destroy_granular_info(info);
+            log_error("Error mallocing buffer");
+            return NULL;
+        }
         int offset_bytes = i * grain_len * sizeof(char);
         void* p_to_cpy_from = buf + offset_bytes;
-        memcpy(g->buf, p_to_cpy_from, g->buf_len);
+        memcpy(g->buf, p_to_cpy_from, g->buf_len * sizeof(char));
 
-        log_trace("New grain created for index %i", i);
+        log_trace("New grain created for index %i: %p with buf_len %i", i, g, g->buf_len);
         grains[i] = g;
     }
     //last special shorter grain
     grain *g = grain_create();
+    if (!g)
+    {
+        for (int i=0; i < num_grains; i++) //cleanup
+        {
+            if (grains[i] != NULL)
+            {
+                grain_destroy(grains[i]);
+                grains[i] = NULL;
+            }
+        }
+        destroy_granular_info(info);
+        log_error("Error creating grain");
+        return NULL;
+    }
     int offset_bytes = (num_grains -1) * grain_len * sizeof(char);
     g->buf_len = buf_len - offset_bytes;
-    g->buf = malloc(sizeof(g->buf_len * sizeof(char)));
+    g->buf = malloc(g->buf_len * sizeof(char));
+    if (!g->buf)
+    {
+        for (int i=0; i < num_grains; i++) 
+        { //cleanup
+            if (grains[i] != NULL)
+            {
+                grain_destroy(grains[i]);
+                grains[i] = NULL;
+            }
+        }
+        destroy_granular_info(info);
+        log_error("Error mallocing buffer");
+        return NULL;
+    }
     g->orig_pos = num_grains-1;
+    log_trace("Create shorter special grain, buf_len %i (offset_bytes %i), orig_pos %i", g->buf_len, offset_bytes, g->orig_pos);
     void* p_to_cpy_from = buf + (num_grains -1) * grain_len;
     memcpy(g->buf, p_to_cpy_from, g->buf_len);
     grains[num_grains - 1] = g;
     //done creating all grains
 
     //debug grains array:
+    /*
     for (int i = 0; i < num_grains; i++)
     {
         grain_print_complete(grains[i]);
     }
+    */
 
     //all original grains are now created
-    shuffle_pointer(grains, num_grains);
-    log_trace("Grains shuffled");
+    shuffle_pointer((void*) grains, num_grains);
+    //log_trace("Grains shuffled");
 
     //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
     for (int i = 0; i < num_grains; i++)
@@ -247,43 +317,62 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         grain *g = grains[i];
         //time factor adjusting
         int abs_time_factor = abs(g->used_time_factor);
-        char *buf_new = malloc(g->buf_len * abs_time_factor * sizeof(char));
+        char *buf_new;
         int res_time_factor = scale_array_custom_sample_length(g->buf, &buf_new, 
             g->buf_len, abs_time_factor, bytes_per_sample);
-        
-        if (abs_time_factor != res_time_factor)
+        if (res_time_factor < 0)
         {
+            //TODO return with error
+        }
+        if (abs_time_factor * g->buf_len != res_time_factor)
+        {
+            log_trace("Abs time factor: %i, real_time_factor: %i", abs_time_factor, res_time_factor);
             log_warn("Scale array did not work due unaligned data. Reset this grains timefactor and length");
             g->used_time_factor = res_time_factor;
             abs_time_factor = res_time_factor;
         }
+        //write in new buffer
         free(g->buf);
         g->buf = buf_new;
+        log_trace("Old buf len %i", g->buf_len);
+        log_trace("Abs time factor: %i", abs_time_factor);
         g->buf_len = g->buf_len * abs_time_factor;
-        
+        log_trace("Changed new buf len to %i", g->buf_len);
         new_buf_len += g->buf_len;
     }
+    log_trace("New buffer len: %i", new_buf_len);
 
     int offset = 0;
-    char *new_buf = malloc(new_buf_len * sizeof(char));
+    char *new_buf = malloc(new_buf_len);
+    if (!new_buf)
+    {
+        for (int i = 0; i < num_grains; i++)
+        {
+            grain_destroy(grains[i]);
+        }
+        destroy_granular_info(info);
+        return NULL;
+    }
     //build new grains. Contains original grains and overlapping between
     for (int i = 0; i < num_grains; i++)
     {
-        log_trace("Next grain with index %i", i);
+        //log_trace("Next grain with index %i", i);
         grain *g_current = grains[i];
         //copy current grain
         memcpy(new_buf + offset, g_current->buf, g_current->buf_len);
+        
         offset += g_current->buf_len;
     }
 
+    /*
     for (int i = 0; i < num_grains; i++) //debug
     {
         grain_print_complete(grains[i]);
-    }
+    }*/
 
     //write granular_info for returning filter coefficients
     info->num_samples = num_grains;
-    for (int i = 0; i < num_grains; i++) //debug
+    for (int i = 0; i < num_grains; i++)
     {
         info->order_samples[i] = grains[i]->orig_pos;
         info->order_timelens[i] = grains[i]->used_time_factor;
@@ -294,7 +383,6 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     {
         grain_destroy(grains[i]);
     }
-
     //return
     *len_out = new_buf_len;
     *buf_out = new_buf;

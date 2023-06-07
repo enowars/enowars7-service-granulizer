@@ -120,7 +120,10 @@ void add_user_base_folder()
 
 }
 
-int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+static int unlink_cb(const char *fpath, 
+	__attribute__ ((unused)) const struct stat *sb, 
+	__attribute__ ((unused)) int typeflag, 
+	__attribute__ ((unused)) struct FTW *ftwbuf)
 {
     int rv = remove(fpath);
     if (rv)
@@ -131,7 +134,7 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW
     return rv;
 }
 
-int rmrf(char *path)
+static int rmrf(char *path)
 {
     return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
@@ -140,7 +143,7 @@ void add_user_folder(const char* username)
 {
     //remove user folder for clean beginning
 
-    char path[64] = "users/";
+    char path[128] = "users/";
 	
     strcat(path, username);
     strcat(path, "/");

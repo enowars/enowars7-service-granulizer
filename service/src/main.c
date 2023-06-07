@@ -68,6 +68,8 @@ bool containsIllegalChars(const char* input) {
  */
 void setup_service()
 {
+	srand(time(NULL)); //create random seed
+
 	add_user_base_folder();
 
 	FILE* fp = fopen("users/users-info.txt", "r");
@@ -81,9 +83,13 @@ void setup_service()
 	
 	//create empty file
 	fp = fopen("users/users-info.txt", "w");
+	if (!fp)
+	{
+		return;
+	}
 	fclose(fp);
 
-	srand(time(NULL)); //create random seed
+	
 
 }
 
@@ -325,8 +331,9 @@ void granulize_call()
 			return;
 		}
 	} else {
-		printf("Error, wrong file format");
 		log_error("no pcm or wav file for input, instead: %s", dot);
+		printf("Error, wrong file format");
+		return;
 	}
 	log_info("Successfully read data");
 
@@ -339,13 +346,29 @@ void granulize_call()
 	{
 		samplerate = w_header->SampleRate;
 		bytes_per_sample = w_header->BitsPerSample / 8;
+		free(w_header);
+		w_header = NULL;
 	} else {
-		samplerate = -1;
+		samplerate = 1;
 		bytes_per_sample = 1;
 	}
+	
 
-	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, 1);
-
+	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, samplerate);
+	if (!info)
+	{
+		printf("Error granulizing\n");
+		return;
+	}
+	if (p_data)
+	{
+		free(p_data);
+	}
+	if (last_granular_info)
+	{
+		destroy_granular_info(last_granular_info);
+		last_granular_info = NULL;
+	}
 	last_granular_info = info;
 
 	//write data to users folder
@@ -356,22 +379,27 @@ void granulize_call()
 	
 	
 	//write file
-	int res;
 	if (file_mode == WAV)
 	{
 		strcat(file_name_complete, "granulized.wav");
-		res = write_wav(file_name_complete, new_sample, w_header, new_sample_len);
+		write_wav(file_name_complete, new_sample, w_header, new_sample_len);
 	} else if (file_mode == PCM)
 	{
 		strcat(file_name_complete, "granulized.pcm");
-		res = write_pcm(file_name_complete, new_sample, new_sample_len);
+		write_pcm(file_name_complete, new_sample, new_sample_len);
 	} else {
 		printf("Error, wrong file format");
 		log_error("no pcm or wav file for input, instead: %s", dot);
+		if (new_sample)
+		{
+			free(new_sample);
+		}
+		return;
 	}
-	if (res)
+
+	if (new_sample)
 	{
-		//TODO error checking
+		free(new_sample);
 	}
 
 	printf("written to file %s\n", file_name_complete);
