@@ -166,7 +166,7 @@ int write_pcm(const char* file_name, const char* p_data, uint32_t len)
  */
 int write_wav(const char* file_name, const char* p_data, const WavHeader* w_header, uint32_t len)
 {
-    log_debug("Start .wav file writing");
+    log_debug("Start .wav file writing for %p with len %i", p_data, len);
 
     WavHeader* header_cpy = calloc(sizeof(WavHeader), 1);
     memcpy(header_cpy, w_header, sizeof(WavHeader));

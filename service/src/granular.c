@@ -84,7 +84,7 @@ static int scale_array_custom_sample_length(const char* buf_in, char** buf_out, 
     int num_samples = buf_in_len / bytes_per_sample;
     int offset = 0;
     //create new array which is "factor" bigger
-    char *buf = malloc(buf_in_len * sizeof(char) * factor);
+    char *buf = calloc(buf_in_len * sizeof(char) * factor, 1);
 
     for (int i=0; i < num_samples; i++)
     {
@@ -351,6 +351,7 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
             grain_destroy(grains[i]);
         }
         destroy_granular_info(info);
+        log_error("Erro allocating memory for new buffer");
         return NULL;
     }
     //build new grains. Contains original grains and overlapping between

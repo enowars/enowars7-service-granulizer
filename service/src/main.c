@@ -344,26 +344,37 @@ void granulize_call()
 	int samplerate;
 	if (w_header)
 	{
+		log_trace("Wheader available");
 		samplerate = w_header->SampleRate;
 		bytes_per_sample = w_header->BitsPerSample / 8;
-		free(w_header);
-		w_header = NULL;
 	} else {
+		log_trace("Wheader not available");
 		samplerate = 1;
 		bytes_per_sample = 1;
 	}
-	
 
 	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, samplerate);
 	if (!info)
 	{
 		printf("Error granulizing\n");
+		if (w_header)
+		{
+			free(w_header);
+			w_header = NULL;
+		}
+		if (p_data)
+		{
+			free(p_data);
+			p_data = NULL;
+		}
 		return;
 	}
 	if (p_data)
 	{
 		free(p_data);
+		p_data = NULL;
 	}
+
 	if (last_granular_info)
 	{
 		destroy_granular_info(last_granular_info);
@@ -400,6 +411,11 @@ void granulize_call()
 	if (new_sample)
 	{
 		free(new_sample);
+	}
+	if (w_header)
+	{
+		free(w_header);
+		w_header = NULL;
 	}
 
 	printf("written to file %s\n", file_name_complete);
