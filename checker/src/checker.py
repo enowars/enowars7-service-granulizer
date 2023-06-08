@@ -62,13 +62,7 @@ class GranulizerChecker(BaseChecker):
         )
 
         conn.write(f"{password}\n")
-        conn.readline_expect(
-            b"Please share some details about yourself: ",
-            read_until=b"Please share some details about yourself: ",
-            exception_message="Failed to register user",
-        )
-
-        conn.write(f"{details}\n")
+        
         conn.readline_expect(
             b"ok",
             read_until=b"ok",
