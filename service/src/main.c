@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -641,9 +642,11 @@ static void help_call()
 int main()
 {	
 
-	setvbuf(stdin, NULL, _IONBF, 0);
-	setvbuf(stdout, NULL, _IONBF, 0);
-
+	setbuf(stdin, NULL);
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+    alarm(120);
+	
 	printf("  _____ _____            _   _ _    _ _      _____ ____________ _____  \n");
 	printf(" / ____|  __ \\     /\\   | \\ | | |  | | |    |_   _|___  /  ____|  __ \\ \n");
 	printf("| |  __| |__) |   /  \\  |  \\| | |  | | |      | |    / /| |__  | |__) | \n");
