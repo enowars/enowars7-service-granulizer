@@ -45,7 +45,6 @@ class GranulizerChecker(BaseChecker):
         self.debug(
             f"Sending command to register user: {username} with password: {password}, details: {details}"
         )
-        #response = conn.readuntil("> ")
 
         conn.write(f"r\n")
         conn.readline_expect(
