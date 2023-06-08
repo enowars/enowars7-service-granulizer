@@ -459,7 +459,7 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	printf("Enter base64 encoded wave file\n"); //, maximum size 1024 bytes:\n");
+	printf("Enter base64 encoded wave file (maximum %i bytes long)\n", MAX_FILE_UPLOAD_LEN); //, maximum size 1024 bytes:\n");
 	char base64encoded[MAX_FILE_UPLOAD_LEN];
 	fgets(base64encoded, MAX_FILE_UPLOAD_LEN, stdin);
 
@@ -470,7 +470,7 @@ void upload_file(const char* ending)
 	if (len <= 0)
 	{
 		log_warn("Error parsing the b64: %s", base64encoded);
-		printf("Error parsing the b64\n");
+		printf("Error parsing the b64. Is the uploaded string maximum %i bytes long?\n", MAX_FILE_UPLOAD_LEN);
 		return;
 	}
 	
