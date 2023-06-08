@@ -239,8 +239,8 @@ void granulize_call()
 	log_trace("Granulize call");
 
 	printf("Enter a file name: ");
-	char file_name[1024];
-	fgets(file_name, 1024, stdin);
+	char file_name[MAX_FILENAME_LEN];
+	fgets(file_name, MAX_FILENAME_LEN, stdin);
 
 	char* tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
