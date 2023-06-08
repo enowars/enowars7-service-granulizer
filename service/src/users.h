@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 
-#define MAX_LEN_USER_FILE 	65536
+#define MAX_LEN_USER_FILE 	((int)(1024 * 1024 * 128)) //128 mB
 #define MAX_USER_NAME_LEN 	((int) 64)
 #define MAX_PWD_LEN 		((int) 64)
 #define MAX_DETAILS_LEN		((int) 64)

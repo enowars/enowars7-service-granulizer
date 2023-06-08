@@ -21,6 +21,7 @@
 #define MIN_FILENAME_LEN ((int) 5)
 #define MAX_FILENAME_LEN ((int) 64 + 5)
 
+#define MAX_FILE_UPLOAD_LEN ((int) 1024 * 1024)
 //1Mb of maximum file size for downloading
 #define MAX_FILE_DOWNLOAD_LEN ((int) 1024 * 1024)
 
@@ -458,10 +459,10 @@ void upload_file(const char* ending)
 	}
 
 	printf("Enter base64 encoded wave file\n"); //, maximum size 1024 bytes:\n");
-	char base64encoded[1024];
-	fgets(base64encoded, 1024, stdin);
+	char base64encoded[MAX_FILE_UPLOAD_LEN];
+	fgets(base64encoded, MAX_FILE_UPLOAD_LEN, stdin);
 
-	char input[1024];
+	char input[MAX_FILE_UPLOAD_LEN];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
 
