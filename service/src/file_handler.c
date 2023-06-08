@@ -25,6 +25,11 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     log_trace("Read .wav call for file %s", file_name);
 
     WavHeader *header = calloc(sizeof(WavHeader), 1);
+    if (!header)
+    {
+        log_error("Allocation error");
+        return -1;
+    }
     *wavHeader = header;
 
     FILE* f = fopen(file_name, "rb");
@@ -32,6 +37,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("error opening file\n");
         log_error("error opening file");
+        free(header);
         return -1;
     }
 
@@ -42,6 +48,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("error reading file\n");
         log_error("error reading file");
+        free(header);
         fclose(f);
         return -1;
     }
@@ -49,6 +56,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("Error: wav file has wrong format\n");
         log_error("Error: wav file has wrong format");
+        free(header);
         fclose(f);
         return -1;
     }
@@ -56,6 +64,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("Error: wav file has wrong format\n");
         log_error("Error: wav file has wrong format");
+        free(header);
         fclose(f);
         return -1;
     }
@@ -63,6 +72,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("Error: wav file has wrong format. Is it a mono channel file?\n");
         log_error("Error: wav file has wrong format");
+        free(header);
         fclose(f);
         return -1;
     }
@@ -82,6 +92,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
         if (counter >= MAX_COUNTER)
         {
             printf("Error: wav file has wrong format. Is it a mono channel file?\n");
+            free(header);
             fclose(f);
             return -1;
         }
@@ -91,6 +102,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("Error: wav file has wrong format\n");
         log_error("Error: wav file has wrong format");
+        free(header);
         fclose(f);
         return -1;
     }
@@ -109,11 +121,12 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     {
         printf("Error reading .wav content\n");
         log_error("Error reading .wav content");
+        free(header);
         free(data);
         fclose(f);
         return -1;
     }
-
+    free(header);
     fclose(f);
     *p_data = data;
 
@@ -140,8 +153,15 @@ int read_pcm(const char* file_name, char** p_data)
     long fsize = ftell(f); //get size
     fseek(f, 0, SEEK_SET);  //go back to beginning
 
-    char *data = malloc(fsize + 1);
-    fread(data, fsize, 1, f);
+    char *data = malloc(fsize);
+    int res = fread(data, fsize, 1, f);
+    if (res != 1)
+    {
+        log_warn("Error reading from pcm file");
+        free(data);
+        fclose(f);
+        return -1;
+    }
     fclose(f);
 
     *p_data = data;

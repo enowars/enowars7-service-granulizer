@@ -397,7 +397,7 @@ static char* build_user_path(const char* file_name)
 
 void upload_file(const char* ending)
 {
-	log_trace("Upload file (with ending %s) call", ending);
+	//log_trace("Upload file (with ending) call");
 
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
@@ -420,13 +420,18 @@ void upload_file(const char* ending)
 	}
 
 	printf("Enter base64 encoded wave file (maximum 500kB bytes long)\n");
-	char base64encoded[MAX_FILE_UPLOAD_LEN];
+	char *base64encoded = calloc(MAX_FILE_UPLOAD_LEN, sizeof(char));
+	if (!base64encoded)
+	{
+		printf("Error allocating memory\n");
+		return;
+	}
 	fgets(base64encoded, MAX_FILE_UPLOAD_LEN, stdin);
 
 	char input[MAX_FILE_UPLOAD_LEN];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
-
+	free(base64encoded);
 	if (len <= 0)
 	{
 		log_warn("Error parsing the b64: %s", base64encoded);
@@ -466,12 +471,13 @@ void upload_file(const char* ending)
 
 void upload_pcm_file_call()
 {
-	upload_file(".pcm");
+	log_trace("Calling .pcm uploading");
+	upload_file(".pcm\0");
 }
 
 void upload_wav_file_call()
 {
-	upload_file(".wav");
+	upload_file(".wav\0");
 }
 
 
@@ -530,7 +536,13 @@ void download_file_call(const char* ending)
 	//get file content, read_pcm returns the complete binary data
 	char *p_buf;
 	int file_len = read_pcm(path_cpy, &p_buf);
-	
+	if (file_len == -1)
+	{
+		log_error("Error in read_pcm ocurred");
+		printf("Error reading .pcm file\n");
+		free(path_cpy);
+		return;
+	}
 	int approx_new_len = Base64encode_len(file_len);
 	if (approx_new_len >= MAX_FILE_DOWNLOAD_LEN)
 	{
