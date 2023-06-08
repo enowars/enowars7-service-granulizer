@@ -215,58 +215,18 @@ void register_user()
 		return;
 	}
 
-	char* details 		= ask("Please share some details about yourself: ");
-	char* details_cpy 	= strdup(details);
-	log_trace("Entered details: %s", details_cpy);
-	if (!strcmp(details_cpy, ""))
-	{
-		log_warn("Entered details is empty, abort");
-		printf("Empty details is not allowed\n");
-		free(username_cpy);
-		free(password_cpy);
-		free(details_cpy);
-		return;
-	}
-	if (strlen(details_cpy) > MAX_DETAILS_LEN)
-	{
-		log_warn("Details too long, abort");
-		printf("Details are too long, maximum allowed length is %i.\n", MAX_DETAILS_LEN);
-		free(username_cpy);
-		free(password_cpy);
-		free(details_cpy);
-		return;
-	}
-	if (containsIllegalChars(details_cpy))
-	{
-		log_warn("Details contains illegal chars, abort");
-		printf("Details contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
-		free(username_cpy);
-		free(password_cpy);
-		free(details_cpy);
-		return;
-	}
-
-	//check if username does not exist
-	int res = load_user_file(); //load current user file
-	if (res)
-	{
-		log_error("Couldnt read user_file, abort register_user");
-		printf("Internal error, user couldn't created\n");
-		return;
-	}
 	bool exist = exist_username(username_cpy);
 	if (exist)
 	{
 		printf("user already exist!\n");
 		log_trace("Couldnt create user '%s' - already exists", username_cpy);
 	} else {
-		add_user(username_cpy, password_cpy, details_cpy);
+		add_user(username_cpy, password_cpy);
 		printf("ok\n");
 		log_trace("User '%s' created successfully", username_cpy);
 	}
 	free(username_cpy);
 	free(password_cpy);
-	free(details_cpy);
 
 }
 
@@ -610,11 +570,6 @@ static void granulize_info_call()
 	}
 }
 
-static void account_call()
-{
-	
-}
-
 static void quit_call()
 {
 	//frees all used memory
@@ -634,7 +589,6 @@ static void help_call()
 	printf("download pcm - downloads a .pcm file from own profile, encoded as base64\n");
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
-	printf("account - show account details\n");
 	printf("help - this prompt\n");
 	printf("quit - quits (surprise)\n\n");
 }
@@ -686,7 +640,6 @@ int main()
 		{ "download pcm\n", download_pcm_file_call },
 		{ "granulize info\n", granulize_info_call },
 		{ "granulize\n", granulize_call },
-		{ "account\n", account_call },
 		{ "help\n", help_call },
 		{ "quit\n", quit_call }
 	};

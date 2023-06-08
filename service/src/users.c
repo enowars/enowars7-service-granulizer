@@ -220,7 +220,7 @@ void add_user_folder_and_password(const char* username, const char* password)
  * Adds users info to users-info.txt, creates user folder
  *
  */
-int add_user(const char* username, const char* pwd, const char* details)
+int add_user(const char* username, const char* pwd)
 {	
 	/*
 	//open file and append user infos
