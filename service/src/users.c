@@ -1,4 +1,5 @@
 #include "users.h"
+#include "log.c/log.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -47,6 +48,52 @@ int load_user_file()
 
 bool exist_username_with_password(const char* username_in, const char* password_in)
 {
+	//check if user folder exists
+	char path[128] = "users/";
+	
+    strcat(path, username_in);
+    strcat(path, "/");
+    struct stat sb;
+
+    if (!(stat(path, &sb) == 0 && S_ISDIR(sb.st_mode))) { //folder does not exist
+        return false;
+    }
+
+	if (password_in == NULL) //only check if user exists
+	{
+		return true;
+	}
+
+	//check if content of passwd.txt is like the password_in
+	strcat(path, "passwd.txt");
+	
+	FILE *fp = fopen(path, "r");
+	if (!fp)
+	{
+		log_error("Error opening passwd.txt file, but the user exists.");
+		return false;
+	}
+	char password_read[MAX_PWD_LEN];
+	for (int i=0; i < MAX_PWD_LEN; i++)
+	{
+		password_read[i] = 0;
+	}
+	int len = fread(password_read, MAX_PWD_LEN, 1, fp);
+	if (len == 1 && ferror(fp))
+	{
+		log_error("Error reading passwd.txt file content");
+		return false;
+	}
+	log_trace("Read password: %s", password_read);
+	if (!strcmp(password_read, password_in))
+	{ //correct
+		return true;
+	} else {
+		log_warn("Wrong provided password");
+		return false;
+	}
+
+	/*
 	char delimiter[] = ";";
 	char delimiter_details[] = ":";
 	char *save_ptr_1, *save_ptr_2;
@@ -92,6 +139,7 @@ bool exist_username_with_password(const char* username_in, const char* password_
 	}
 
 	free(split);
+	*/
 	return false;
 }
 
@@ -139,10 +187,9 @@ static int rmrf(char *path)
     return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
 
-void add_user_folder(const char* username)
+void add_user_folder_and_password(const char* username, const char* password)
 {
     //remove user folder for clean beginning
-
     char path[128] = "users/";
 	
     strcat(path, username);
@@ -150,11 +197,21 @@ void add_user_folder(const char* username)
     
 	rmrf(path);
 
-    //create users folder
+    //create new users folder
 	struct stat st = {0};
 	if (stat(path, &st) == -1) {
 		mkdir(path, 0700);
 	}
+
+	//create password file and write it
+	strcat(path, "passwd.txt");
+	FILE *fp = fopen(path, "w");
+	if (!fp)
+	{
+		return;
+	}
+	fwrite(password, strlen(password), 1, fp);
+	fclose(fp);
 
 }
 
@@ -165,6 +222,7 @@ void add_user_folder(const char* username)
  */
 int add_user(const char* username, const char* pwd, const char* details)
 {	
+	/*
 	//open file and append user infos
 	FILE* fp = fopen("users/users-info.txt", "a");
 	if (!fp)
@@ -209,8 +267,9 @@ int add_user(const char* username, const char* pwd, const char* details)
 		return 2;
 	}
 	fclose(fp);
-	
-    add_user_folder(username);
+	*/
+
+    add_user_folder_and_password(username, pwd);
 
     return 0;
 }
