@@ -61,7 +61,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     }
     if (header->Subchunk1ID != htonl(0x666d7420)) // "fmt "
     {
-        printf("Error: wav file has wrong format\n");
+        printf("Error: wav file has wrong format. Is it a mono channel file?\n");
         log_error("Error: wav file has wrong format");
         fclose(f);
         return -1;
@@ -71,11 +71,20 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
 
     // skip over any other chunks before the "data" chunk
     bool additionalHeaderDataPresent = false;
+    int counter = 0;
+    const int MAX_COUNTER = 5;
     while (header->Subchunk2ID != htonl(0x64617461)) {   // "data"
         log_warn("Additional not data chunk found, ignore");
         fseek(f, 4, SEEK_CUR);
         fread(&header->Subchunk2ID, 4, 1, f);
         additionalHeaderDataPresent = true;
+        counter++;
+        if (counter >= MAX_COUNTER)
+        {
+            printf("Error: wav file has wrong format. Is it a mono channel file?\n");
+            fclose(f);
+            return -1;
+        }
     }
 
     if (header->Subchunk2ID != htonl(0x64617461))    // "data"
