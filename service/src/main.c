@@ -402,7 +402,7 @@ void upload_file(const char* ending)
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
 	{
-		log_warn("File call cancelled: wrong file ending '%s'", ending);
+		log_warn("File call cancelled: wrong file ending '%s', is '%s'", ending, file_name_in);
 		printf("File has to end with %s\n", ending);
 		return;
 	}
@@ -419,7 +419,7 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	printf("Enter base64 encoded wave file (maximum %i bytes long)\n", MAX_FILE_UPLOAD_LEN); //, maximum size 1024 bytes:\n");
+	printf("Enter base64 encoded wave file (maximum 500kB bytes long)\n");
 	char base64encoded[MAX_FILE_UPLOAD_LEN];
 	fgets(base64encoded, MAX_FILE_UPLOAD_LEN, stdin);
 

@@ -61,7 +61,6 @@ class GranulizerChecker(BaseChecker):
         )
 
         conn.write(f"{password}\n")
-        
         conn.readline_expect(
             b"ok",
             read_until=b"ok",
@@ -130,8 +129,8 @@ class GranulizerChecker(BaseChecker):
 
         conn.write(f"{filename}\n")
         conn.readline_expect(
-            b"Enter base64 encoded wave file\n",
-            read_until=b"Enter base64 encoded wave file\n",
+            b"Enter base64 encoded wave file (maximum 500kB bytes long)\n",
+            read_until=b"Enter base64 encoded wave file (maximum 500kB bytes long)\n",
             exception_message="Failed to enter file name"
         )
 
