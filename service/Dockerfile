@@ -3,7 +3,7 @@ FROM ubuntu:18.04
 RUN useradd -ms /bin/bash -u 1000 service
 
 RUN apt update && apt install -y --no-install-recommends \
-	nmap gcc make libc6-dev libc6 libc-dev-bin ucspi-tcp
+	nmap gcc make libc6-dev libc6 libc-dev-bin ucspi-tcp libreadline-dev
 
 COPY entrypoint.sh /
 RUN chmod 755 /entrypoint.sh

@@ -30,7 +30,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
         log_error("Allocation error");
         return -1;
     }
-    *wavHeader = header;
+    *wavHeader = NULL;
 
     FILE* f = fopen(file_name, "rb");
     if (!f)
@@ -126,9 +126,9 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
         fclose(f);
         return -1;
     }
-    free(header);
     fclose(f);
     *p_data = data;
+    *wavHeader = header;
 
     log_info("Success reading .wav file");
 

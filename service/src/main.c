@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #include "users.h"
 #include "base64.h"
@@ -22,9 +24,9 @@
 #define MIN_FILENAME_LEN ((int) 5)
 #define MAX_FILENAME_LEN ((int) 64 + 5)
 
-#define MAX_FILE_UPLOAD_LEN ((int) 1024 * 1024)
+#define MAX_FILE_UPLOAD_LEN 500000
 //1Mb of maximum file size for downloading
-#define MAX_FILE_DOWNLOAD_LEN ((int) 1024 * 1024)
+#define MAX_FILE_DOWNLOAD_LEN 1048576
 
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
@@ -258,13 +260,20 @@ void granulize_call()
 		return;
 	}
 	log_debug("Correct file ending: %s", dot);
-	
+
+
 	//build path
 	char file_name_complete[128];
-	strcpy(file_name_complete, "users/");
-	strcat(file_name_complete, current_user);
-	strcat(file_name_complete, "/");
-	strcat(file_name_complete, file_name);
+	//special case, TODO remove later and properly insert example files
+	if (!strcmp(file_name, "bach.wav"))
+	{
+		strcpy(file_name_complete, "default_data/bach.wav");
+	} else {
+		strcpy(file_name_complete, "users/");
+		strcat(file_name_complete, current_user);
+		strcat(file_name_complete, "/");
+		strcat(file_name_complete, file_name);
+	}
 	log_debug("Complete file path: %s", file_name_complete);
 
 	int len;
@@ -311,7 +320,7 @@ void granulize_call()
 		bytes_per_sample = w_header->BitsPerSample / 8;
 	} else {
 		log_trace("Wheader not available");
-		samplerate = 1;
+		samplerate = 10;
 		bytes_per_sample = 1;
 	}
 
@@ -419,18 +428,25 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	printf("Enter base64 encoded wave file (maximum 500kB bytes long)\n");
-	char *base64encoded = calloc(MAX_FILE_UPLOAD_LEN, sizeof(char));
-	if (!base64encoded)
+	printf("Enter base64 encoded wave file (maximum 4kB bytes long)\n");	
+	char *base64encoded = readline(NULL); //readline is important to use due to the big buffer size
+	
+	if (base64encoded == NULL)
 	{
-		printf("Error allocating memory\n");
 		return;
 	}
-	fgets(base64encoded, MAX_FILE_UPLOAD_LEN, stdin);
+	if (strlen(base64encoded) > MAX_FILE_UPLOAD_LEN)
+	{
+		free(base64encoded);
+		printf("File is too long!\n");
+		return;
+	}
 
 	char input[MAX_FILE_UPLOAD_LEN];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
+	log_trace("Inputted length: %i", strlen(base64encoded));
+	log_trace("Decoded %i bytes of original base64 file", len);
 	free(base64encoded);
 	if (len <= 0)
 	{
@@ -438,7 +454,8 @@ void upload_file(const char* ending)
 		printf("Error parsing the b64. Is the uploaded string maximum %i bytes long?\n", MAX_FILE_UPLOAD_LEN);
 		return;
 	}
-	
+
+
 	//build complete filepath with name
 	char file_name_complete[128];
 	strcpy(file_name_complete, "users/");
@@ -533,6 +550,14 @@ void download_file_call(const char* ending)
 	printf("read file from path %s\n", path);
 	char* path_cpy = strdup(path);
 	
+	if (!strcmp(file_name, "bach.wav"))
+	{
+		free(path_cpy);
+		path_cpy = (char *) calloc(64, sizeof(char));
+		strcpy(path_cpy, "default_data/bach.wav");
+		//path_cpy = "default_data/bach.wav";
+	}
+
 	//get file content, read_pcm returns the complete binary data
 	char *p_buf;
 	int file_len = read_pcm(path_cpy, &p_buf);
@@ -602,17 +627,18 @@ static void help_call()
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
 	printf("help - this prompt\n");
-	printf("quit - quits (surprise)\n\n");
+	printf("quit - quits (surprise)\n");
+	printf("There is a sample file for granulizing already included! Try out granulizing the file 'bach.wav'. Download the original, then granulize it and download, and compare the results which each other to see how this program works!\n\n");
 }
 
 int main()
 {	
 
-	setbuf(stdin, NULL);
-	setbuf(stdout, NULL);
-	setbuf(stderr, NULL);
-    alarm(120);
+	alarm(120);
 	
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stdin, NULL,  _IONBF, 0);
+    
 	printf("  _____ _____            _   _ _    _ _      _____ ____________ _____  \n");
 	printf(" / ____|  __ \\     /\\   | \\ | | |  | | |    |_   _|___  /  ____|  __ \\ \n");
 	printf("| |  __| |__) |   /  \\  |  \\| | |  | | |      | |    / /| |__  | |__) | \n");

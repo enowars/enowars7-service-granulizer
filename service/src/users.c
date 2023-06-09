@@ -82,6 +82,12 @@ void add_user_base_folder()
 		mkdir("users", 0700);
 	}
 
+	if (stat("default_data", &st) == -1) {
+		log_warn("Default data could not be found, no bach linking :(");
+	} else{
+		log_trace("Linking bach.wav example file");
+		link("default_data/bach.wav", "users/bach.wav");
+	}
 }
 
 static int unlink_cb(const char *fpath, 
