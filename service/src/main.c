@@ -80,7 +80,6 @@ bool containsIllegalChars(const char* input) {
 /**
  * Perform setup of service if the service does not exist yet.
  *
- * Creates users-info.txt
  * Deletes users/ directory if it exist
  * Creates users/ directory
  *
