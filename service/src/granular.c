@@ -296,21 +296,38 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     log_trace("Starting granulize algorithm with params: buf_len %i, bytes_per_sample %i, samplerate: %i", 
         buf_len, bytes_per_sample, samplerate);
     
-    //grains_len has to be minimum bytes_per_sample, choose length so it is
-    const int target_grains_per_s = 1;
-    int minimum_grain_number = (int) (ceil((double) buf_len / (double) bytes_per_sample)); //minimum possible number of grains when bytes_per_sample are still regarded
-    int num_grains = (minimum_grain_number / samplerate * target_grains_per_s);
-    if (num_grains > minimum_grain_number)
-    {
-        num_grains = minimum_grain_number;
+    int num_grains = 0;
+    int normal_grain_len = 0;
+    int last_grain_len = 0;
+    int target_grains_per_s = 10;
+    if (bytes_per_sample != 1)
+    { //more difficult case for .wav data
+        //grains_len has to be minimum bytes_per_sample, choose length so it is
+
+        num_grains = (int) ((double)buf_len / (double) samplerate * (double)target_grains_per_s);
+        if (buf_len % bytes_per_sample != 0)
+        {
+            log_warn("Invalid data for granulizing provided");
+            printf("Error, unaligned data for granulize provided\n");
+            return NULL;
+        }
+        //units in bytes
+        normal_grain_len = ((int) ((double) buf_len / 2 / (double) num_grains)) * 2;
+        last_grain_len = buf_len - (normal_grain_len * (num_grains - 1));
+        
+        log_trace("num_grains: %i, normal_grain_len: %i, last_grain_len: %i", num_grains, normal_grain_len, last_grain_len);
+        
+        if (num_grains <= 1)
+        {
+            return NULL;
+        }
+    } else { //bytes_per_sample = 1, easy case
+        log_trace("Detected .pcm granulize data on byte level");
+        num_grains = buf_len;
+        normal_grain_len = 1;
+        last_grain_len = 1;
     }
 
-    int grain_len = bytes_per_sample; //length of a normal grain, TODO ändern
-    log_trace("Num_grains: %i, grain_len: %i, minimum_grain_number: %i", num_grains, grain_len, minimum_grain_number);
-    if ((grain_len % bytes_per_sample) != 0)
-    {
-        log_warn("Grain_len (%i) is not a multiple of bytes_per_sample (%i)! This could lead to weird errors", grain_len, bytes_per_sample);
-    }
     //create granular info for returning:
     granular_info* info = malloc(sizeof(granular_info));
 	if (!info)
@@ -338,7 +355,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     grain *grains[num_grains];
 
 
-    const int grain_overlapping_len = grain_len;
+    const int grain_overlapping_len = normal_grain_len;
 
     for (int i=0; i < num_grains -1; i++)
     { //even sized grains
@@ -346,15 +363,15 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         g->orig_pos = i;
 
         //create actual grain
-        g->buf_len = grain_len;
+        g->buf_len = normal_grain_len;
         g->buf = malloc(g->buf_len * sizeof(char));
-        int offset_bytes = i * grain_len * sizeof(char);
+        int offset_bytes = i * normal_grain_len * sizeof(char);
         void* p_to_cpy_from = buf + offset_bytes;
         memcpy(g->buf, p_to_cpy_from, g->buf_len);
         
         //fill buffer before the actual grain
-        int offset_bytes_before = offset_bytes - grain_len;
-        int buf_before_len = grain_len; //TODO change, depending on how you want the overlapping
+        int offset_bytes_before = offset_bytes - normal_grain_len;
+        int buf_before_len = normal_grain_len; //TODO change, depending on how you want the overlapping
         if (offset_bytes_before < 0)
         {
             offset_bytes_before = offset_bytes;
@@ -367,8 +384,8 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         g->buf_before_len = buf_before_len;
         
         //fill buffer after the actual grain
-        int offset_bytes_after = offset_bytes + grain_len; //start position
-        int buf_after_len = grain_len; //TODO change, depending on how you want the overlapping
+        int offset_bytes_after = offset_bytes + normal_grain_len; //start position
+        int buf_after_len = normal_grain_len; //TODO change, depending on how you want the overlapping
         if (offset_bytes_after + buf_after_len > buf_len)
         {
             buf_after_len = buf_len - offset_bytes_after;
@@ -384,16 +401,16 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     }
     //last special shorter grain
     grain *g = grain_create();
-    int offset_bytes = (num_grains -1) * grain_len * sizeof(char);
+    int offset_bytes = (num_grains -1) * normal_grain_len * sizeof(char);
     g->buf_len = buf_len - offset_bytes;
     g->buf = malloc(sizeof(g->buf_len * sizeof(char)));
     g->orig_pos = num_grains-1;
-    void* p_to_cpy_from = buf + (num_grains -1) * grain_len;
+    void* p_to_cpy_from = buf + (num_grains -1) * normal_grain_len;
     memcpy(g->buf, p_to_cpy_from, g->buf_len);
     grains[num_grains - 1] = g;
     //write before & after buffer for this grain
-    int offset_bytes_before = offset_bytes - grain_len;
-    int buf_before_len = grain_len; //TODO change, depending on how you want the overlapping
+    int offset_bytes_before = offset_bytes - normal_grain_len;
+    int buf_before_len = normal_grain_len; //TODO change, depending on how you want the overlapping
     if (offset_bytes_before < 0)
     {
         offset_bytes_before = offset_bytes;
