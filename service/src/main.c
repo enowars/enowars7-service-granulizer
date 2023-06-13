@@ -261,7 +261,6 @@ void granulize_call()
 	}
 	log_debug("Correct file ending: %s", dot);
 
-
 	//build path
 	char file_name_complete[128];
 	//special case, TODO remove later and properly insert example files
@@ -607,6 +606,31 @@ static void granulize_info_call()
 	}
 }
 
+static void set_option_granular_rate()
+{
+	const int MIN_OPTION_GRANULAR_RATE = 2;
+	const int MAX_OPTION_GRANULAR_RATE = 200;
+
+	char* in = ask("Number of grains per second: (default 10) ");
+	int num = atoi(in);
+	if (num == 0)
+	{
+		printf("Error for numerical input\n");
+		log_error("Error for input of set option granular rate");
+		return;
+	}
+	
+	if (num < MIN_OPTION_GRANULAR_RATE || num > MAX_OPTION_GRANULAR_RATE)
+	{
+		printf("Error, input has to be between %i and %i\n", 
+			MIN_OPTION_GRANULAR_RATE, MAX_OPTION_GRANULAR_RATE);
+		log_error("Input out of range");
+		return;
+	}
+	extern int target_grains_per_s;
+	target_grains_per_s = num;
+}
+
 static void quit_call()
 {
 	//frees all used memory
@@ -626,8 +650,9 @@ static void help_call()
 	printf("download pcm - downloads a .pcm file from own profile, encoded as base64\n");
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
+	printf("set option granular_rate - sets the number of grains per second for a wave file. 10 is the default value\n");
 	printf("help - this prompt\n");
-	printf("quit - quits (surprise)\n");
+	printf("quit - quits (surprise)\n\n");
 	printf("There is a sample file for granulizing already included! Try out granulizing the file 'bach.wav'. Download the original, then granulize it and download, and compare the results which each other to see how this program works!\n\n");
 }
 
@@ -678,6 +703,7 @@ int main()
 		{ "download pcm\n", download_pcm_file_call },
 		{ "granulize info\n", granulize_info_call },
 		{ "granulize\n", granulize_call },
+		{ "set option granular_rate\n", set_option_granular_rate },
 		{ "help\n", help_call },
 		{ "quit\n", quit_call }
 	};

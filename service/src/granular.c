@@ -148,6 +148,13 @@ void print_granular_info(const granular_info* info)
     
 }
 
+/**
+ * @brief Sets the number of grains per second in a wave file. 
+ * This is used by the main function and the 'set option granular_rate' command, 
+ * which changes this parameter. 
+ */
+unsigned int target_grains_per_s = 15;
+
 granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_out, 
     const unsigned int bytes_per_sample, const int samplerate)
 {
@@ -161,7 +168,6 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
     if (bytes_per_sample != 1)
     { //more difficult case for .wav data
         //grains_len has to be minimum bytes_per_sample, choose length so it is
-        const int target_grains_per_s = 10;
 
         num_grains = (int) ((double)buf_len / (double) samplerate * (double)target_grains_per_s);
         if (buf_len % bytes_per_sample != 0)
@@ -316,7 +322,8 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
     //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
     for (int i = 0; i < num_grains; i++)
     {
-        //int timefactor = rand() % 3 + 1;;
+        //int timefactor = rand() % 3; //between 1 and 3
+        //timefactor = pow(2, timefactor);
         int timefactor = 2; //TODO change timefactor and randomize
         grains[i]->used_time_factor = timefactor;
     }

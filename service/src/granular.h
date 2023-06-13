@@ -38,7 +38,6 @@ typedef struct grain {
 	int used_time_factor;
 } grain;
 
-
 void destroy_granular_info(granular_info *g);
 
 void print_granular_info(const granular_info* info);
