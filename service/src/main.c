@@ -34,6 +34,17 @@
 char* current_user;
 granular_info* last_granular_info;
 
+static void quit_call()
+{
+	//frees all used memory
+	free(current_user);
+	destroy_granular_info(last_granular_info);
+	
+	log_info("Freed all memory");
+	printf("Byeee\n");
+	exit(0);
+}
+
 char* ask(const char* prompt)
 {
 	printf("%s", prompt);
@@ -44,8 +55,8 @@ char* ask(const char* prompt)
 	if (fgets(buf, ARRSIZE(buf), stdin)) {
 		tok = strchr(buf, '\n');
 		if (tok) *tok = '\0';
-	} else {
-		*buf = '\0';
+	} else { //In this case an EOF was detected, exit this program
+		quit_call();
 	}
 	return buf;
 }
@@ -242,9 +253,12 @@ void granulize_call()
 
 	printf("Enter a file name: ");
 	char file_name[MAX_FILENAME_LEN];
-	fgets(file_name, MAX_FILENAME_LEN, stdin);
-
-	char* tok = strchr(file_name, '\n'); //remove \n 
+	char *status = fgets(file_name, MAX_FILENAME_LEN, stdin);
+	if (!status)
+	{ //In this case an EOF was detected, then exit the program
+		quit_call();
+	}
+	char *tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
 
 	//check that file name is valid
@@ -631,17 +645,6 @@ static void set_option_granular_rate()
 	target_grains_per_s = num;
 }
 
-static void quit_call()
-{
-	//frees all used memory
-	free(current_user);
-	destroy_granular_info(last_granular_info);
-	
-	log_info("Freed all memory");
-	printf("Byeee\n");
-	exit(0);
-}
-
 static void help_call()
 {
 	printf("upload wav - uploads a .wav file into own profile, encoded as base64\n");
@@ -712,8 +715,11 @@ int main()
 	while (1)
 	{
 		printf("What do you want to do?\n > ");
-		fgets(cmd, 32, stdin);
-
+		char *status = fgets(cmd, 32, stdin);
+		if (!status)
+		{ //In this case an EOF was detected, then exit the program
+			quit_call();
+		}
 		int i;
 		for (i = 0; i < (int) ARRSIZE(cmds); i++) {
 			if (!strcmp(cmd, cmds[i].name)) {
