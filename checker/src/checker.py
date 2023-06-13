@@ -480,7 +480,7 @@ class GranulizerChecker(BaseChecker):
             
             return reversed
         else:
-            raise EnoException("Wrong variant_id provided")
+            raise EnoException("Wrong variant_id provided: {}".format(self.variant_id))
 
 
 app = GranulizerChecker.service  # This can be used for uswgi.

@@ -31,13 +31,17 @@
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
 
-char* current_user;
-granular_info* last_granular_info;
+char* current_user = NULL;
+granular_info* last_granular_info = NULL;
 
 static void quit_call()
 {
 	//frees all used memory
-	free(current_user);
+	if (current_user)
+	{
+		free(current_user);
+		current_user = NULL;
+	}
 	destroy_granular_info(last_granular_info);
 	
 	log_info("Freed all memory");
@@ -56,7 +60,7 @@ char* ask(const char* prompt)
 		tok = strchr(buf, '\n');
 		if (tok) *tok = '\0';
 	} else { //In this case an EOF was detected, exit this program
-		quit_call();
+		//quit_call();
 	}
 	return buf;
 }
