@@ -45,7 +45,6 @@ class GranulizerChecker(BaseChecker):
         self.debug(
             f"Sending command to register user: {username} with password: {password}, details: {details}"
         )
-        #response = conn.readuntil("> ")
 
         conn.write(f"r\n")
         conn.readline_expect(
@@ -62,13 +61,6 @@ class GranulizerChecker(BaseChecker):
         )
 
         conn.write(f"{password}\n")
-        conn.readline_expect(
-            b"Please share some details about yourself: ",
-            read_until=b"Please share some details about yourself: ",
-            exception_message="Failed to register user",
-        )
-
-        conn.write(f"{details}\n")
         conn.readline_expect(
             b"ok",
             read_until=b"ok",
@@ -137,8 +129,8 @@ class GranulizerChecker(BaseChecker):
 
         conn.write(f"{filename}\n")
         conn.readline_expect(
-            b"Enter base64 encoded wave file\n",
-            read_until=b"Enter base64 encoded wave file\n",
+            b"Enter base64 encoded wave file (maximum 4kB bytes long)\n",
+            read_until=b"Enter base64 encoded wave file (maximum 4kB bytes long)\n",
             exception_message="Failed to enter file name"
         )
 
@@ -183,13 +175,14 @@ class GranulizerChecker(BaseChecker):
         granular_order_timelens, granular_order_buffer_lens):
         
         self.debug("Reverse pcm")
-
+        self.debug("granular_number_samples:")
+        self.debug(granular_number_samples)
         grain_offset = 0
         grains_list = {}
         for i in range(granular_number_samples): #reconstruct grains with correct length
             this_grain_orig_pos = granular_order_samples[i]
             this_grain_timelen = granular_order_timelens[this_grain_orig_pos]
-            this_grain_len = granular_order_buffer_lens[this_grain_orig_pos]
+            this_grain_len = (int) (granular_order_buffer_lens[this_grain_orig_pos] / this_grain_timelen)
 
             orig_grain = [0] * this_grain_len #init empty array for this grain
             
@@ -456,19 +449,24 @@ class GranulizerChecker(BaseChecker):
 
             #Get granulize parameters
             granulize_params = self.granulize_info(conn)
+            self.debug("Granulize_params:")
+            self.debug(granulize_params)
 
             #get file for reversing
             data = self.get_pcm(conn, "granulized.pcm")
             self.debug("Got data from server:")
             self.debug(data)
-
+            data_number_samples = granulize_params['granular_number_samples'] 
+            data_order_samples = granulize_params['granular_order_samples']
+            data_order_timelens = granulize_params['granular_order_timelens']
+            data_buffer_lens = granulize_params['granular_order_buffer_lens']
             #reverse
             reversed = self.reverse_pcm(
                 data, 
-                granulize_params['granular_number_samples'], 
-                granulize_params['granular_order_samples'],
-                granulize_params['granular_order_timelens'],
-                granulize_params['granular_order_buffer_lens'])
+                data_number_samples,
+                data_order_samples,
+                data_order_timelens,
+                data_buffer_lens)
             self.debug("Complete reversed: ")
             self.debug(reversed)
             #build hash of this flag and compare
@@ -482,7 +480,7 @@ class GranulizerChecker(BaseChecker):
             
             return reversed
         else:
-            raise EnoException("Wrong variant_id provided")
+            raise EnoException("Wrong variant_id provided: {}".format(self.variant_id))
 
 
 app = GranulizerChecker.service  # This can be used for uswgi.

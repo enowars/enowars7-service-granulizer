@@ -25,6 +25,12 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     log_trace("Read .wav call for file %s", file_name);
 
     WavHeader *header = calloc(sizeof(WavHeader), 1);
+    if (!header)
+    {
+        log_error("Allocation error");
+        return -1;
+    }
+    *wavHeader = NULL;
 
     FILE* f = fopen(file_name, "rb");
     if (!f)
@@ -64,7 +70,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
     }
     if (header->Subchunk1ID != htonl(0x666d7420)) // "fmt "
     {
-        printf("Error: wav file has wrong format\n");
+        printf("Error: wav file has wrong format. Is it a mono channel file?\n");
         log_error("Error: wav file has wrong format");
         free(header);
         fclose(f);
@@ -75,11 +81,21 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
 
     // skip over any other chunks before the "data" chunk
     bool additionalHeaderDataPresent = false;
+    int counter = 0;
+    const int MAX_COUNTER = 5;
     while (header->Subchunk2ID != htonl(0x64617461)) {   // "data"
         log_warn("Additional not data chunk found, ignore");
         fseek(f, 4, SEEK_CUR);
         fread(&header->Subchunk2ID, 4, 1, f);
         additionalHeaderDataPresent = true;
+        counter++;
+        if (counter >= MAX_COUNTER)
+        {
+            printf("Error: wav file has wrong format. Is it a mono channel file?\n");
+            free(header);
+            fclose(f);
+            return -1;
+        }
     }
 
     if (header->Subchunk2ID != htonl(0x64617461))    // "data"
@@ -110,8 +126,6 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
         fclose(f);
         return -1;
     }
-
-    free(header);
     fclose(f);
     *p_data = data;
     *wavHeader = header;
@@ -139,8 +153,15 @@ int read_pcm(const char* file_name, char** p_data)
     long fsize = ftell(f); //get size
     fseek(f, 0, SEEK_SET);  //go back to beginning
 
-    char *data = malloc(fsize + 1);
-    fread(data, fsize, 1, f);
+    char *data = malloc(fsize);
+    int res = fread(data, fsize, 1, f);
+    if (res != 1)
+    {
+        log_warn("Error reading from pcm file");
+        free(data);
+        fclose(f);
+        return -1;
+    }
     fclose(f);
 
     *p_data = data;
@@ -148,7 +169,7 @@ int read_pcm(const char* file_name, char** p_data)
     return (int) fsize;
 }
 
-int write_pcm(const char* file_name, char* p_data, uint32_t len)
+int write_pcm(const char* file_name, const char* p_data, uint32_t len)
 {
     
     FILE* f = fopen(file_name, "wb");
@@ -163,12 +184,21 @@ int write_pcm(const char* file_name, char* p_data, uint32_t len)
     return 0;
 }
 
+/**
+ * @brief 
+ * 
+ * @param file_name 
+ * @param p_data 
+ * @param w_header Information about the wave file
+ * @param len 
+ * @return int 
+ */
 int write_wav(const char* file_name, const char* p_data, const WavHeader* w_header, uint32_t len)
 {
-    log_debug("Start .wav file writing");
+    log_debug("Start .wav file writing for %p with len %i", p_data, len);
 
-    WavHeader* header_cpy = (WavHeader*) w_header;
-
+    WavHeader* header_cpy = calloc(sizeof(WavHeader), 1);
+    memcpy(header_cpy, w_header, sizeof(WavHeader));
     //prepare header
     header_cpy->ChunkID = htonl(0x52494646); // "RIFF"
     header_cpy->ChunkSize = 0; // fill this in on file-close
@@ -185,6 +215,7 @@ int write_wav(const char* file_name, const char* p_data, const WavHeader* w_head
 
         printf("Error opening the file %s\n", file_name);
         perror("Error opening the file");
+        free(header_cpy);
         return -1;
     }
     log_info("Opened .wav file successfully");
@@ -197,13 +228,15 @@ int write_wav(const char* file_name, const char* p_data, const WavHeader* w_head
         printf("Error writing .wav file\n");
         perror("Error writing .wav file");
         fclose(f);
+        free(header_cpy);
         return -1;
     }
+    free(header_cpy);
     log_debug("Header written successfully");
 
     //Write data
-    written = fwrite(p_data, sizeof(char), len, f);
-    if (written != len)
+    written = fwrite(p_data, len, 1, f);
+    if (written != 1)
     {
         log_error("Error writing .wav content, written bytes %i instead of %i", written, len * sizeof(char));
         printf("Error writing file\n");
@@ -220,7 +253,6 @@ int write_wav(const char* file_name, const char* p_data, const WavHeader* w_head
 
     //Finish
     fclose(f);
-    free(header_cpy);
 
     log_info("Successfully written .wav file");
 

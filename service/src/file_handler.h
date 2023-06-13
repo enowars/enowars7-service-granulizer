@@ -24,7 +24,7 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader);
 
 int read_pcm(const char* file_name, char** p_data);
 
-int write_pcm(const char* file_name, char* p_data, uint32_t len);
+int write_pcm(const char* file_name, const char* p_data, uint32_t len);
 
 int write_wav(const char* file_name, const char* p_data, const WavHeader* w_header, uint32_t len);
 

@@ -4,8 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #include "users.h"
 #include "base64.h"
@@ -21,14 +24,30 @@
 #define MIN_FILENAME_LEN ((int) 5)
 #define MAX_FILENAME_LEN ((int) 64 + 5)
 
+#define MAX_FILE_UPLOAD_LEN 500000
 //1Mb of maximum file size for downloading
-#define MAX_FILE_DOWNLOAD_LEN ((int) 1024 * 1024)
+#define MAX_FILE_DOWNLOAD_LEN 1048576
 
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
 
-char* current_user;
-granular_info* last_granular_info;
+char* current_user = NULL;
+granular_info* last_granular_info = NULL;
+
+static void quit_call()
+{
+	//frees all used memory
+	if (current_user)
+	{
+		free(current_user);
+		current_user = NULL;
+	}
+	destroy_granular_info(last_granular_info);
+	
+	log_info("Freed all memory");
+	printf("Byeee\n");
+	exit(0);
+}
 
 char* ask(const char* prompt)
 {
@@ -40,8 +59,8 @@ char* ask(const char* prompt)
 	if (fgets(buf, ARRSIZE(buf), stdin)) {
 		tok = strchr(buf, '\n');
 		if (tok) *tok = '\0';
-	} else {
-		*buf = '\0';
+	} else { //In this case an EOF was detected, exit this program
+		//quit_call();
 	}
 	return buf;
 }
@@ -61,13 +80,14 @@ bool containsIllegalChars(const char* input) {
 /**
  * Perform setup of service if the service does not exist yet.
  *
- * Creates users-info.txt
  * Deletes users/ directory if it exist
  * Creates users/ directory
  *
  */
 void setup_service()
 {
+	srand(time(NULL)); //create random seed
+
 	add_user_base_folder();
 
 	FILE* fp = fopen("users/users-info.txt", "r");
@@ -81,9 +101,13 @@ void setup_service()
 	
 	//create empty file
 	fp = fopen("users/users-info.txt", "w");
+	if (!fp)
+	{
+		return;
+	}
 	fclose(fp);
 
-	srand(time(NULL)); //create random seed
+	
 
 }
 
@@ -207,58 +231,18 @@ void register_user()
 		return;
 	}
 
-	char* details 		= ask("Please share some details about yourself: ");
-	char* details_cpy 	= strdup(details);
-	log_trace("Entered details: %s", details_cpy);
-	if (!strcmp(details_cpy, ""))
-	{
-		log_warn("Entered details is empty, abort");
-		printf("Empty details is not allowed\n");
-		free(username_cpy);
-		free(password_cpy);
-		free(details_cpy);
-		return;
-	}
-	if (strlen(details_cpy) > MAX_DETAILS_LEN)
-	{
-		log_warn("Details too long, abort");
-		printf("Details are too long, maximum allowed length is %i.\n", MAX_DETAILS_LEN);
-		free(username_cpy);
-		free(password_cpy);
-		free(details_cpy);
-		return;
-	}
-	if (containsIllegalChars(details_cpy))
-	{
-		log_warn("Details contains illegal chars, abort");
-		printf("Details contains illegal characters. Allowed characters are only a-z, A-Z and 0-9\n");
-		free(username_cpy);
-		free(password_cpy);
-		free(details_cpy);
-		return;
-	}
-
-	//check if username does not exist
-	int res = load_user_file(); //load current user file
-	if (res)
-	{
-		log_error("Couldnt read user_file, abort register_user");
-		printf("Internal error, user couldn't created\n");
-		return;
-	}
 	bool exist = exist_username(username_cpy);
 	if (exist)
 	{
 		printf("user already exist!\n");
 		log_trace("Couldnt create user '%s' - already exists", username_cpy);
 	} else {
-		add_user(username_cpy, password_cpy, details_cpy);
+		add_user(username_cpy, password_cpy);
 		printf("ok\n");
 		log_trace("User '%s' created successfully", username_cpy);
 	}
 	free(username_cpy);
 	free(password_cpy);
-	free(details_cpy);
 
 }
 
@@ -271,10 +255,13 @@ void granulize_call()
 	log_trace("Granulize call");
 
 	printf("Enter a file name: ");
-	char file_name[1024];
-	fgets(file_name, 1024, stdin);
-
-	char* tok = strchr(file_name, '\n'); //remove \n 
+	char file_name[MAX_FILENAME_LEN];
+	char *status = fgets(file_name, MAX_FILENAME_LEN, stdin);
+	if (!status)
+	{ //In this case an EOF was detected, then exit the program
+		quit_call();
+	}
+	char *tok = strchr(file_name, '\n'); //remove \n 
 	if (tok) *tok = '\0';
 
 	//check that file name is valid
@@ -290,13 +277,19 @@ void granulize_call()
 		return;
 	}
 	log_debug("Correct file ending: %s", dot);
-	
+
 	//build path
 	char file_name_complete[128];
-	strcpy(file_name_complete, "users/");
-	strcat(file_name_complete, current_user);
-	strcat(file_name_complete, "/");
-	strcat(file_name_complete, file_name);
+	//special case, TODO remove later and properly insert example files
+	if (!strcmp(file_name, "bach.wav"))
+	{
+		strcpy(file_name_complete, "default_data/bach.wav");
+	} else {
+		strcpy(file_name_complete, "users/");
+		strcat(file_name_complete, current_user);
+		strcat(file_name_complete, "/");
+		strcat(file_name_complete, file_name);
+	}
 	log_debug("Complete file path: %s", file_name_complete);
 
 	int len;
@@ -325,8 +318,9 @@ void granulize_call()
 			return;
 		}
 	} else {
-		printf("Error, wrong file format");
 		log_error("no pcm or wav file for input, instead: %s", dot);
+		printf("Error, wrong file format");
+		return;
 	}
 	log_info("Successfully read data");
 
@@ -337,15 +331,42 @@ void granulize_call()
 	int samplerate;
 	if (w_header)
 	{
+		log_trace("Wheader available");
 		samplerate = w_header->SampleRate;
 		bytes_per_sample = w_header->BitsPerSample / 8;
 	} else {
-		samplerate = -1;
+		log_trace("Wheader not available");
+		samplerate = 10;
 		bytes_per_sample = 1;
 	}
 
-	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, 1);
+	granular_info* info = granulize_v2(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, samplerate);
+	if (!info)
+	{
+		printf("Error granulizing\n");
+		if (w_header)
+		{
+			free(w_header);
+			w_header = NULL;
+		}
+		if (p_data)
+		{
+			free(p_data);
+			p_data = NULL;
+		}
+		return;
+	}
+	if (p_data)
+	{
+		free(p_data);
+		p_data = NULL;
+	}
 
+	if (last_granular_info)
+	{
+		destroy_granular_info(last_granular_info);
+		last_granular_info = NULL;
+	}
 	last_granular_info = info;
 
 	//write data to users folder
@@ -356,22 +377,32 @@ void granulize_call()
 	
 	
 	//write file
-	int res;
 	if (file_mode == WAV)
 	{
 		strcat(file_name_complete, "granulized.wav");
-		res = write_wav(file_name_complete, new_sample, w_header, new_sample_len);
+		write_wav(file_name_complete, new_sample, w_header, new_sample_len);
 	} else if (file_mode == PCM)
 	{
 		strcat(file_name_complete, "granulized.pcm");
-		res = write_pcm(file_name_complete, new_sample, new_sample_len);
+		write_pcm(file_name_complete, new_sample, new_sample_len);
 	} else {
 		printf("Error, wrong file format");
 		log_error("no pcm or wav file for input, instead: %s", dot);
+		if (new_sample)
+		{
+			free(new_sample);
+		}
+		return;
 	}
-	if (res)
+
+	if (new_sample)
 	{
-		//TODO error checking
+		free(new_sample);
+	}
+	if (w_header)
+	{
+		free(w_header);
+		w_header = NULL;
 	}
 
 	printf("written to file %s\n", file_name_complete);
@@ -391,12 +422,12 @@ static char* build_user_path(const char* file_name)
 
 void upload_file(const char* ending)
 {
-	log_trace("Upload file (with ending %s) call", ending);
+	//log_trace("Upload file (with ending) call");
 
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
 	{
-		log_warn("File call cancelled: wrong file ending '%s'", ending);
+		log_warn("File call cancelled: wrong file ending '%s', is '%s'", ending, file_name_in);
 		printf("File has to end with %s\n", ending);
 		return;
 	}
@@ -413,21 +444,34 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	printf("Enter base64 encoded wave file\n"); //, maximum size 1024 bytes:\n");
-	char base64encoded[1024];
-	fgets(base64encoded, 1024, stdin);
+	printf("Enter base64 encoded wave file (maximum 4kB bytes long)\n");	
+	char *base64encoded = readline(NULL); //readline is important to use due to the big buffer size
+	
+	if (base64encoded == NULL)
+	{
+		return;
+	}
+	if (strlen(base64encoded) > MAX_FILE_UPLOAD_LEN)
+	{
+		free(base64encoded);
+		printf("File is too long!\n");
+		return;
+	}
 
-	char input[1024];
+	char input[MAX_FILE_UPLOAD_LEN];
 	//decode and write to file:
 	int len = Base64decode(input, base64encoded);
-
+	log_trace("Inputted length: %i", strlen(base64encoded));
+	log_trace("Decoded %i bytes of original base64 file", len);
+	free(base64encoded);
 	if (len <= 0)
 	{
 		log_warn("Error parsing the b64: %s", base64encoded);
-		printf("Error parsing the b64\n");
+		printf("Error parsing the b64. Is the uploaded string maximum %i bytes long?\n", MAX_FILE_UPLOAD_LEN);
 		return;
 	}
-	
+
+
 	//build complete filepath with name
 	char file_name_complete[128];
 	strcpy(file_name_complete, "users/");
@@ -460,12 +504,13 @@ void upload_file(const char* ending)
 
 void upload_pcm_file_call()
 {
-	upload_file(".pcm");
+	log_trace("Calling .pcm uploading");
+	upload_file(".pcm\0");
 }
 
 void upload_wav_file_call()
 {
-	upload_file(".wav");
+	upload_file(".wav\0");
 }
 
 
@@ -521,10 +566,24 @@ void download_file_call(const char* ending)
 	printf("read file from path %s\n", path);
 	char* path_cpy = strdup(path);
 	
+	if (!strcmp(file_name, "bach.wav"))
+	{
+		free(path_cpy);
+		path_cpy = (char *) calloc(64, sizeof(char));
+		strcpy(path_cpy, "default_data/bach.wav");
+		//path_cpy = "default_data/bach.wav";
+	}
+
 	//get file content, read_pcm returns the complete binary data
 	char *p_buf;
 	int file_len = read_pcm(path_cpy, &p_buf);
-	
+	if (file_len == -1)
+	{
+		log_error("Error in read_pcm ocurred");
+		printf("Error reading .pcm file\n");
+		free(path_cpy);
+		return;
+	}
 	int approx_new_len = Base64encode_len(file_len);
 	if (approx_new_len >= MAX_FILE_DOWNLOAD_LEN)
 	{
@@ -564,20 +623,29 @@ static void granulize_info_call()
 	}
 }
 
-static void account_call()
+static void set_option_granular_rate()
 {
-	
-}
+	const int MIN_OPTION_GRANULAR_RATE = 2;
+	const int MAX_OPTION_GRANULAR_RATE = 200;
 
-static void quit_call()
-{
-	//frees all used memory
-	free(current_user);
-	destroy_granular_info(last_granular_info);
+	char* in = ask("Number of grains per second: (default 10) ");
+	int num = atoi(in);
+	if (num == 0)
+	{
+		printf("Error for numerical input\n");
+		log_error("Error for input of set option granular rate");
+		return;
+	}
 	
-	log_info("Freed all memory");
-	printf("Byeee\n");
-	exit(0);
+	if (num < MIN_OPTION_GRANULAR_RATE || num > MAX_OPTION_GRANULAR_RATE)
+	{
+		printf("Error, input has to be between %i and %i\n", 
+			MIN_OPTION_GRANULAR_RATE, MAX_OPTION_GRANULAR_RATE);
+		log_error("Input out of range");
+		return;
+	}
+	extern int target_grains_per_s;
+	target_grains_per_s = num;
 }
 
 static void help_call()
@@ -588,17 +656,20 @@ static void help_call()
 	printf("download pcm - downloads a .pcm file from own profile, encoded as base64\n");
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
-	printf("account - show account details\n");
+	printf("set option granular_rate - sets the number of grains per second for a wave file. 10 is the default value\n");
 	printf("help - this prompt\n");
 	printf("quit - quits (surprise)\n\n");
+	printf("There is a sample file for granulizing already included! Try out granulizing the file 'bach.wav'. Download the original, then granulize it and download, and compare the results which each other to see how this program works!\n\n");
 }
 
 int main()
 {	
 
-	setvbuf(stdin, NULL, _IONBF, 0);
+	alarm(120);
+	
 	setvbuf(stdout, NULL, _IONBF, 0);
-
+	setvbuf(stdin, NULL,  _IONBF, 0);
+    
 	printf("  _____ _____            _   _ _    _ _      _____ ____________ _____  \n");
 	printf(" / ____|  __ \\     /\\   | \\ | | |  | | |    |_   _|___  /  ____|  __ \\ \n");
 	printf("| |  __| |__) |   /  \\  |  \\| | |  | | |      | |    / /| |__  | |__) | \n");
@@ -638,7 +709,7 @@ int main()
 		{ "download pcm\n", download_pcm_file_call },
 		{ "granulize info\n", granulize_info_call },
 		{ "granulize\n", granulize_call },
-		{ "account\n", account_call },
+		{ "set option granular_rate\n", set_option_granular_rate },
 		{ "help\n", help_call },
 		{ "quit\n", quit_call }
 	};
@@ -647,8 +718,11 @@ int main()
 	while (1)
 	{
 		printf("What do you want to do?\n > ");
-		fgets(cmd, 32, stdin);
-
+		char *status = fgets(cmd, 32, stdin);
+		if (!status)
+		{ //In this case an EOF was detected, then exit the program
+			quit_call();
+		}
 		int i;
 		for (i = 0; i < (int) ARRSIZE(cmds); i++) {
 			if (!strcmp(cmd, cmds[i].name)) {
