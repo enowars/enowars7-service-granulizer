@@ -440,8 +440,8 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     }
 
     //all original grains are now created
-    //shuffle_pointer(grains, num_grains);
-    //log_trace("Grains shuffled");
+    shuffle_pointer(grains, num_grains);
+    log_trace("Grains shuffled");
 
     //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
     for (int i = 0; i < num_grains; i++)
@@ -572,14 +572,19 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
             g_next->buf_before_len, g_current->used_time_factor, bytes_per_sample);
 */
 
-        //its easier to work directly with an INT array instead of chars:
-
         for (int j = 0; j < overlay_buf_len; j += bytes_per_sample)
         {
             double a = -1/(M_E-1);
             double factor_decreasing = exp(j/((double)overlay_buf_len) ) - 1;
             factor_decreasing = (a * factor_decreasing) + 1;
             double factor_increasing = 1 - factor_decreasing;
+            if (factor_decreasing >= 0.99) { //does it have an effect?
+                factor_decreasing = 1;
+                factor_increasing = 0;
+            } else if (factor_increasing >= 0.99) {
+                factor_increasing = 1;
+                factor_decreasing = 0;
+            }
             //log_trace("Factor decreasing for %i = %lf, increasing = %lf", j, 
             //    factor_decreasing, factor_increasing);
             
@@ -630,8 +635,8 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
                 }
             }
             uint16_t to_write_16 = (uint16_t) to_write;
-            overlay_buf[j+1] = (uint8_t) (to_write_16 & 0xFF00 >> 8);
-            overlay_buf[j+0] = (uint8_t) (to_write_16 & 0x00FF);
+            //overlay_buf[j+1] = (uint8_t) (to_write_16 & 0xFF00 >> 8);
+            //overlay_buf[j+0] = (uint8_t) (to_write_16 & 0x00FF);
             
             //log_trace("Data in overlay buffer for index %i now: %i (%c)", j, overlay_buf[j], overlay_buf[j]);
         }
