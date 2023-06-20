@@ -20,14 +20,12 @@ class PageConnect(tk.Frame):
             if (data != should_data):
                 logging.warn("Received unexpected data from server")
                 return
-            
+            self.controller.sock = sock
             logging.info("Connected")
             self.controller.show_frame("PageStart")
-            #controller.show_frame("PageStart")
         except:
             #write error message
-            label_error = tk.Label(self, text="Error connecting")
-            label_error.pack(side="top", fill="x", pady=10)
+            self.label_error.config(text="Error connecting")
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -54,3 +52,6 @@ class PageConnect(tk.Frame):
                                 controller
                                 ))
         button.pack()
+
+        self.label_error = tk.Label(self, text="")
+        self.label_error.pack(side="top", fill="x", pady=10)

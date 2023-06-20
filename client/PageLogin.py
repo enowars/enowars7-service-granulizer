@@ -1,9 +1,34 @@
 import tkinter as tk               
 from tkinter import font as tkfont
+import logging
+import time
 
 #page 3
 
 class PageLogin(tk.Frame):
+
+    def sendLogin(self, user, password):
+        logging.info("Login for {} {}".format(user, password))
+        self.controller.sock.send(b'l\n')
+        time.sleep(0.1)
+        data = self.controller.sock.recv(4096)
+
+        self.controller.sock.send(bytes(user, 'utf-8'))
+        self.controller.sock.send(b'\n')
+        time.sleep(0.1)
+        data = self.controller.sock.recv(4096)
+        
+        self.controller.sock.send(bytes(password, 'utf-8'))
+        self.controller.sock.send(b'\n')
+        time.sleep(0.1)
+        data = self.controller.sock.recv(4096)
+        print(data)
+        should_data = ' > '
+        if data.decode('utf-8').split('\n')[2] != should_data:
+            self.label_error.config(text="Error login: {}".format(data.decode('utf-8').split('\n')[0]))
+            return
+
+        self.controller.show_frame("PageStart")
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -22,5 +47,10 @@ class PageLogin(tk.Frame):
         entry_password.pack()
 
         button = tk.Button(self, text="Login",
-                           command=lambda: controller.show_frame("StartPage"))
+                           command=lambda: self.sendLogin(
+                            entry_username.get(), 
+                            entry_password.get()))
         button.pack()
+
+        self.label_error = tk.Label(self, text="")
+        self.label_error.pack(side="top", fill="x", pady=10)
