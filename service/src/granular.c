@@ -446,8 +446,10 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
     for (int i = 0; i < num_grains; i++)
     {
-        int timefactor = (rand() % MAX_TIMEFACTOR) + 1;
-        int negative = rand() % 2;
+        //int timefactor = (rand() % MAX_TIMEFACTOR) + 1;
+        int timefactor = 2; //TODO change
+        int negative = rand() % 2; //TODO CURRENTLY NOT WORKING!
+        negative = 0;
         if (negative)
         {
             timefactor = -timefactor;
@@ -461,8 +463,8 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     for (int i = 0; i < num_grains; i++)
     {
         grain *g = grains[i];
-        log_trace("Grain [%i], buf_len %i, buf_len_before %i, buf_len_after %i", i, 
-            g->buf_len, g->buf_before_len, g->buf_after_len);
+        log_trace("Grain [%i], buf_len %i, buf_len_before %i, buf_len_after %i, timescale: %i", i, 
+            g->buf_len, g->buf_before_len, g->buf_after_len, g->used_time_factor);
         //time reversing of grain
         if (g->used_time_factor < 0)
         {
@@ -493,6 +495,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         //time factor adjusting, if there is a buffer to work on
         int abs_time_factor = abs(g->used_time_factor);
 
+        
         char *buf_new;
         char *buf_new_before;
         char *buf_new_after;
@@ -512,6 +515,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
                 abs_time_factor = res_time_factor;
             }
         }
+        
         if (g->buf_before_len != 0)
         {
             int res_time_factor_before = scale_array_custom_sample_length(g->buf_before, 
@@ -537,6 +541,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     log_debug("Start with building new sample");
     offset = 0;
     char *new_buf = calloc(new_buf_len, sizeof(char));
+    
     //build new grains. Contains original grains and overlapping in between
     for (int i = 0; i < num_grains -1; i++)
     {
@@ -550,46 +555,93 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
 
         //create overlay with next grain
         int overlay_buf_len = max(g_current->buf_after_len, g_next->buf_before_len);
+
         char *overlay_buf = calloc(overlay_buf_len, sizeof(char)); //use calloc for init with 0
-        log_trace("Created overlay buffer with len %i", overlay_buf_len);
-        /*
-        for (int j = 0; j < overlay_buf_len; j++)
+        log_trace("Created overlay buffer with len %i, buf_after_len %i, buf_before_len %i", 
+            overlay_buf_len, g_current->buf_after_len, g_next->buf_before_len);
+
+/*      
+        //scale current and after buffer:
+        char *buf_new_after_fade_out;
+        char *buf_new_after_fade_in;
+        int res_time_factor_after = scale_array_custom_sample_length(g_current->buf_after, 
+            &buf_new_after_fade_out, 
+            g_current->buf_after_len, g_current->used_time_factor, bytes_per_sample);
+        res_time_factor_after = scale_array_custom_sample_length(g_next->buf_before, 
+            &buf_new_after_fade_in, 
+            g_next->buf_before_len, g_current->used_time_factor, bytes_per_sample);
+*/
+
+        //its easier to work directly with an INT array instead of chars:
+
+        for (int j = 0; j < overlay_buf_len; j += bytes_per_sample)
         {
             double a = -1/(M_E-1);
             double factor_decreasing = exp(j/((double)overlay_buf_len) ) - 1;
-            factor_decreasing = (a * factor_decreasing)  + 1;
+            factor_decreasing = (a * factor_decreasing) + 1;
             double factor_increasing = 1 - factor_decreasing;
             //log_trace("Factor decreasing for %i = %lf, increasing = %lf", j, 
             //    factor_decreasing, factor_increasing);
             
+            uint16_t to_write = 0;
             //fade out for g_current after data
             if (g_current)
             {
-                if (j < g_current->buf_after_len)
+                if (j + 3 < g_current->buf_after_len)
                 {
-                    overlay_buf[j] += 
-                        (unsigned char) (factor_decreasing * g_current->buf_after[j]);
-                    //log_trace("Wrote fade out");
+                    
+                    //memcpy(overlay_buf + j, g_current->buf_after + j, bytes_per_sample);
+                    //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
+                    int16_t x = (g_current->buf_after[j+1] << 8) & 0xFF00 | (g_current->buf_after[j+0] << 0) & 0xFF;
+                    //log_trace("number: 0x%x", x);
+                    //log_trace("A: %lf", factor_increasing);
+                    x = (uint16_t) (x * factor_decreasing);
+                    overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
+                    overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    
                 }
             }
-
             if (g_next)
             {
-                if (j < g_next->buf_before_len) //fade in for g_next before data
+                if (j + 3 < g_next->buf_before_len) //fade in for g_next before data
                 {
-                    overlay_buf[j] = 
-                        (unsigned char) (factor_increasing * g_next->buf_before[j]);
+                    //memcpy(overlay_buf + j, g_next->buf_before + j, bytes_per_sample);
+                    //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
+                    int16_t x       = (g_next->buf_before[j+1] << 8) & 0xFF00 | (g_next->buf_before[j+0] << 0) & 0xFF;
+                    int16_t orig    = (overlay_buf[j+1] << 8) & 0xFF00 | (overlay_buf[j+0] << 0) & 0xFF;
+                    //log_trace("number: 0x%x", x);
+                    //log_trace("A: %lf", factor_increasing);
+                    //to_write += (uint16_t) (x * factor_increasing);
+                    x = (uint16_t) (x * factor_increasing);
+                    x += orig;
+                    overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
+                    overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
+                    
+
+    //                { //important, copy in chunks and not byte by byte
+        //                overlay_buf[j] += 
+  //                      (unsigned char) (factor_increasing * (double) g_next->buf_before[j]);
+                    
+//                    }
                     //log_trace("Wrote fade in");
+                } else {
+                    //log_warn("Out of bounds for in fading");
                 }
             }
+            uint16_t to_write_16 = (uint16_t) to_write;
+            overlay_buf[j+1] = (uint8_t) (to_write_16 & 0xFF00 >> 8);
+            overlay_buf[j+0] = (uint8_t) (to_write_16 & 0x00FF);
             
             //log_trace("Data in overlay buffer for index %i now: %i (%c)", j, overlay_buf[j], overlay_buf[j]);
         }
         memcpy(new_buf + offset, overlay_buf, overlay_buf_len);
-        */
+        free(overlay_buf);
         offset += overlay_buf_len;
         
     }
+    
+
     //last grain is special, just copy it
     
     //cleanup

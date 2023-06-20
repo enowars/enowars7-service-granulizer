@@ -86,7 +86,8 @@ bool containsIllegalChars(const char* input) {
  */
 void setup_service()
 {
-	srand(time(NULL)); //create random seed
+	//TODO comment in again
+	//srand(time(NULL)); //create random seed
 
 	add_user_base_folder();
 
