@@ -175,16 +175,27 @@ void print_granular_info(const granular_info* info)
     
 }
 
-static void grain_print(grain *g)
+/**
+ * @brief Function for debugging when working on the algorithm.
+ * Is may unused, therefore the attribute is added.
+ */
+static void __attribute__((unused)) grain_print(grain *g)
 {
     if (g)
     {
-        printf("Buffer pointer: %p\n", g->buf);
+        if (g->buf)
+        {
+            printf("Buffer pointer: %p\n", g->buf);
+        }
         printf("Grain size: %i\n", g->buf_len);
     }
 }
 
-static void grain_print_complete(grain *g)
+/**
+ * @brief Function for debugging when working on the algorithm.
+ * Is may unused, therefore the attribute is added.
+ */
+static void __attribute__((unused)) grain_print_complete(grain *g)
 {
     if (g)
     {
@@ -411,7 +422,7 @@ static void apply_random_timefactors(grain** grains, int num_grains)
     for (int i = 0; i < num_grains; i++)
     {
         //int timefactor = (rand() % MAX_TIMEFACTOR) + 1;
-        int timefactor = 1; //TODO change
+        int timefactor = 2; //TODO change
         int negative = rand() % 2; //TODO CURRENTLY NOT WORKING!
         negative = 0;
         if (negative)
@@ -492,7 +503,7 @@ static int change_grains(grain** grains, int num_grains, int bytes_per_sample, i
         }
         if (g->buf_after_len != 0)
         {
-            int res_time_factor_after = scale_array_custom_sample_length(g->buf_after, 
+            scale_array_custom_sample_length(g->buf_after, 
             &buf_new_after, 
             g->buf_after_len, abs_time_factor, bytes_per_sample);
             free(g->buf_after);
@@ -575,7 +586,7 @@ static char* build_new_sample(grain** grains, int num_grains, int bytes_per_samp
                 }
             }
         }
-        //memcpy(new_buf + offset, overlay_buf, overlay_buf_len);
+        memcpy(new_buf + offset, overlay_buf, overlay_buf_len);
         free(overlay_buf);
         offset += overlay_buf_len;
         
@@ -639,13 +650,14 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
     log_debug("Created grains");
 
     //all original grains are now created
-    shuffle_pointer(grains, num_grains);
+    shuffle_pointer((void**)grains, num_grains);
     log_debug("Grains shuffled");
 
     apply_random_timefactors(grains, num_grains);
     log_debug("Applied new timefactors for grains");
 
-    int new_buf_len = change_grains(grains, num_grains, bytes_per_sample, normal_grain_len);
+    int new_buf_len = change_grains(grains, num_grains, bytes_per_sample, 
+        normal_grain_len * grains[0]->used_time_factor); //this assumes that the timefactor is everywhere the same
     log_debug("Changed original grains");
 
     char *new_buf = build_new_sample(grains, num_grains, bytes_per_sample, new_buf_len);
