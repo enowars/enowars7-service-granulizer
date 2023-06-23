@@ -335,6 +335,7 @@ void granulize_call()
 		log_trace("Wheader available");
 		samplerate = w_header->SampleRate;
 		bytes_per_sample = w_header->BitsPerSample / 8;
+		log_info("Bytes per sample read: %i", bytes_per_sample);
 	} else {
 		log_trace("Wheader not available");
 		samplerate = 10;

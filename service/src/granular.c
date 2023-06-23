@@ -518,7 +518,8 @@ static int change_grains(grain** grains, int num_grains, int bytes_per_sample, i
     return new_buf_len;
 }
 
-static char* build_new_sample(grain** grains, int num_grains, int bytes_per_sample, int new_buf_len)
+static char* build_new_sample(grain** grains, int num_grains, 
+    int bytes_per_sample, int new_buf_len, granular_info* info)
 {
     int offset = 0;
     char *new_buf = calloc(new_buf_len, sizeof(char));
@@ -533,6 +534,11 @@ static char* build_new_sample(grain** grains, int num_grains, int bytes_per_samp
         //copy actual grain
         memcpy(new_buf + offset, g_current->buf, g_current->buf_len);
         offset += g_current->buf_len;
+
+        //update granular info
+        info->order_samples[i] = g_current->orig_pos;
+        info->order_timelens[i] = g_current->used_time_factor;
+        info->order_buffer_lens[i] = g_current->buf_len;
 
         //create overlay with next grain
         int overlay_buf_len = max(g_current->buf_after_len, g_next->buf_before_len);
@@ -565,22 +571,62 @@ static char* build_new_sample(grain** grains, int num_grains, int bytes_per_samp
             {
                 if (j + (bytes_per_sample - 1) < g_current->buf_after_len)
                 {
-                    int16_t x = ((g_current->buf_after[j+1] << 8) & 0xFF00) | ((g_current->buf_after[j+0] << 0) & 0xFF);
-                    x = (uint16_t) (x * factor_decreasing);
-                    overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
-                    overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    if (bytes_per_sample == 1)
+                    {
+                        int8_t x = ((g_current->buf_after[j+0] << 0) & 0xFF);
+                        x = (uint8_t) (x * factor_decreasing);
+                        overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    } else if (bytes_per_sample == 2) {
+                        int16_t x = ((g_current->buf_after[j+1] << 8) & 0xFF00) | ((g_current->buf_after[j+0] << 0) & 0xFF);
+                        x = (uint16_t) (x * factor_decreasing);
+                        overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
+                        overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    } else if (bytes_per_sample == 3)
+                    {
+                        int32_t x = ((g_current->buf_after[j+2] << 16) & 0x00FF0000) | 
+                                    ((g_current->buf_after[j+1] << 8)  & 0x0000FF00) | 
+                                    ((g_current->buf_after[j+0] << 0)  & 0x000000FF);
+                        x = (uint32_t) (x * factor_decreasing);
+                        overlay_buf[j+2] = (uint8_t) ((x & 0xFF0000) >> 16);
+                        overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
+                        overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    }
                 }
             }
             if (g_next)
             {
                 if (j + (bytes_per_sample - 1) < g_next->buf_before_len) //fade in for g_next before data
                 {
-                    int16_t x       = ((g_next->buf_before[j+1] << 8) & 0xFF00) | ((g_next->buf_before[j+0] << 0) & 0xFF);
-                    uint16_t orig    = ((overlay_buf[j+1] << 8) & 0xFF00) | ((overlay_buf[j+0] << 0) & 0xFF);
-                    x = (uint16_t) (x * factor_increasing);
-                    x += orig;
-                    overlay_buf[j+1] = ((x & 0xFF00) >> 8);
-                    overlay_buf[j+0] = (x & 0x00FF);
+                    if (bytes_per_sample == 1)
+                    {
+                        int8_t x       = ((g_next->buf_before[j+0] << 0) & 0xFF);
+                        uint8_t orig    = ((overlay_buf[j+0] << 0) & 0xFF);
+                        x = (uint8_t) (x * factor_increasing);
+                        x += orig;
+                        overlay_buf[j+0] = (x & 0x00FF);
+                    } else if (bytes_per_sample == 2) {
+                        int16_t x       = ((g_next->buf_before[j+1] << 8) & 0xFF00) | ((g_next->buf_before[j+0] << 0) & 0xFF);
+                        uint16_t orig    = ((overlay_buf[j+1] << 8) & 0xFF00) | ((overlay_buf[j+0] << 0) & 0xFF);
+                        x = (uint16_t) (x * factor_increasing);
+                        x += orig;
+                        overlay_buf[j+1] = ((x & 0xFF00) >> 8);
+                        overlay_buf[j+0] = (x & 0x00FF);
+                    } else if (bytes_per_sample == 3) {
+                        int32_t x       = 
+                            ((g_next->buf_before[j+2] << 16) & 0xFF0000) |
+                            ((g_next->buf_before[j+1] << 8) & 0xFF00) | 
+                            ((g_next->buf_before[j+0] << 0) & 0xFF);
+                        uint32_t orig    = 
+                            ((overlay_buf[j+2] << 16) & 0xFF0000) |
+                            ((overlay_buf[j+1] << 8) & 0xFF00) | 
+                            ((overlay_buf[j+0] << 0) & 0xFF);
+                        x = (uint32_t) (x * factor_increasing);
+                        x += orig;
+                        overlay_buf[j+2] = ((x & 0xFF0000) >> 16);
+                        overlay_buf[j+1] = ((x & 0xFF00) >> 8);
+                        overlay_buf[j+0] = (x & 0x00FF);
+                    }
+
                 } else {
                     //log_warn("Out of bounds for in fading");
                 }
@@ -589,12 +635,13 @@ static char* build_new_sample(grain** grains, int num_grains, int bytes_per_samp
         memcpy(new_buf + offset, overlay_buf, overlay_buf_len);
         free(overlay_buf);
         offset += overlay_buf_len;
-        
     }
     //last grain is special, just copy it
-    log_debug("Offset for last grain: %i", offset);
-    log_debug("Last grain length: %i", grains[num_grains-1]->buf_len);
     memcpy(new_buf + offset, grains[num_grains - 1]->buf, grains[num_grains - 1]->buf_len);
+    //update granular info
+    info->order_samples[num_grains - 1]         = grains[num_grains - 1]->orig_pos;
+    info->order_timelens[num_grains - 1]        = grains[num_grains - 1]->used_time_factor;
+    info->order_buffer_lens[num_grains - 1]     = grains[num_grains - 1]->buf_len;
     //fade this one out
         //TODO
     return new_buf;
@@ -660,7 +707,7 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
         normal_grain_len * grains[0]->used_time_factor); //this assumes that the timefactor is everywhere the same
     log_debug("Changed original grains");
 
-    char *new_buf = build_new_sample(grains, num_grains, bytes_per_sample, new_buf_len);
+    char *new_buf = build_new_sample(grains, num_grains, bytes_per_sample, new_buf_len, info);
     log_debug("Done building new sample");
 
     //cleanup
