@@ -127,6 +127,19 @@ int read_wav(const char* file_name, char** p_data, WavHeader** wavHeader)
         return -1;
     }
     fclose(f);
+
+    //check for correct byte_depth:
+    if (header->BitsPerSample != 8 && header->BitsPerSample != 16 && header->BitsPerSample != 24)
+    {
+        printf("Error, this file does not have a correct bit depth. Only 8, 16 and 24 bits per sample are allowed\n");
+        free(data);
+        free(header);
+        return -1;
+    }
+    if (header->BitsPerSample == 24)
+    {
+        printf("Warning: chosen file has a bit depth of 24, which could lead to sound artifacts.\nReduce the bit depth to 8 or 16 bits per sample for best effects\n");
+    }
     *p_data = data;
     *wavHeader = header;
 

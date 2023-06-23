@@ -28,7 +28,7 @@ class PageLogin(tk.Frame):
             self.label_error.config(text="Error login: {}".format(data.decode('utf-8').split('\n')[0]))
             return
 
-        self.controller.show_frame("PageStart")
+        self.controller.show_frame("PageMenu")
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
