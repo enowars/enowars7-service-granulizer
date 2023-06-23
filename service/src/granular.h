@@ -1,6 +1,8 @@
 #ifndef _GRANULAR_H
 #define _GRANULAR_H
 
+#define MAX_TIMEFACTOR ((int) 3)
+
 typedef struct granular_info {
 	int num_samples;
 	/**
@@ -27,6 +29,18 @@ typedef struct grain {
 	 * Number of bytes of grain
 	 */
 	int buf_len;
+	
+	/**
+	 * Content of buffer before grain, for better overlapping effects.
+	 */
+	char *buf_before;
+	int buf_before_len;
+
+	/**
+	 * Content of buffer after grain, for better overlapping effects.
+	 */
+	char *buf_after;
+	int buf_after_len;
 
 	/**
 	 * Original position of the grain, in units of grains (not bytes).

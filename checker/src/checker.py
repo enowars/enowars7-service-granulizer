@@ -57,7 +57,7 @@ class GranulizerChecker(BaseChecker):
         conn.readline_expect(
             b"Password: ",
             read_until=b"Password: ",
-            exception_message="Failed to enter unter name"
+            exception_message="Failed to enter user name"
         )
 
         conn.write(f"{password}\n")
@@ -190,7 +190,7 @@ class GranulizerChecker(BaseChecker):
                 index_read = g * this_grain_timelen + grain_offset
                 orig_grain[g] = bytes_in[index_read]
 
-            grain_offset += this_grain_timelen * this_grain_len
+            grain_offset += this_grain_timelen * this_grain_len * this_grain_timelen
             grains_list[this_grain_orig_pos] = orig_grain #add reconstructed grain to list
             
         #reconstruct order of grains
