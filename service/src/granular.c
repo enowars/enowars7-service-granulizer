@@ -293,7 +293,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     int num_grains = 0;
     int normal_grain_len = 0;
     int last_grain_len = 0;
-    int target_grains_per_s = 2;
+    int target_grains_per_s = 20;
     if (bytes_per_sample != 1)
     { //more difficult case for .wav data
         //grains_len has to be minimum bytes_per_sample, choose length so it is
@@ -447,7 +447,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     for (int i = 0; i < num_grains; i++)
     {
         //int timefactor = (rand() % MAX_TIMEFACTOR) + 1;
-        int timefactor = 2; //TODO change
+        int timefactor = 1; //TODO change
         int negative = rand() % 2; //TODO CURRENTLY NOT WORKING!
         negative = 0;
         if (negative)
@@ -571,20 +571,25 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
             &buf_new_after_fade_in, 
             g_next->buf_before_len, g_current->used_time_factor, bytes_per_sample);
 */
-
+        //fade in + fade out
         for (int j = 0; j < overlay_buf_len; j += bytes_per_sample)
         {
             double a = -1/(M_E-1);
             double factor_decreasing = exp(j/((double)overlay_buf_len) ) - 1;
             factor_decreasing = (a * factor_decreasing) + 1;
             double factor_increasing = 1 - factor_decreasing;
-            if (factor_decreasing >= 0.99) { //does it have an effect?
+            
+            if (factor_decreasing >= 0.99) { //normalizing, does it have an effect?
                 factor_decreasing = 1;
-                factor_increasing = 0;
-            } else if (factor_increasing >= 0.99) {
-                factor_increasing = 1;
+            } else if (factor_decreasing <= 0.01) {
                 factor_decreasing = 0;
             }
+            if (factor_increasing >= 0.99) {
+                factor_increasing = 1;
+            } else if (factor_increasing <= 0.01) {
+                factor_increasing = 0;
+            }
+
             //log_trace("Factor decreasing for %i = %lf, increasing = %lf", j, 
             //    factor_decreasing, factor_increasing);
             
@@ -603,7 +608,6 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
                     x = (uint16_t) (x * factor_decreasing);
                     overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
                     overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
-                    
                 }
             }
             if (g_next)
@@ -613,14 +617,14 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
                     //memcpy(overlay_buf + j, g_next->buf_before + j, bytes_per_sample);
                     //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
                     int16_t x       = (g_next->buf_before[j+1] << 8) & 0xFF00 | (g_next->buf_before[j+0] << 0) & 0xFF;
-                    int16_t orig    = (overlay_buf[j+1] << 8) & 0xFF00 | (overlay_buf[j+0] << 0) & 0xFF;
+                    uint16_t orig    = (overlay_buf[j+1] << 8) & 0xFF00 | (overlay_buf[j+0] << 0) & 0xFF;
                     //log_trace("number: 0x%x", x);
                     //log_trace("A: %lf", factor_increasing);
                     //to_write += (uint16_t) (x * factor_increasing);
                     x = (uint16_t) (x * factor_increasing);
                     x += orig;
-                    overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
-                    overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
+                    overlay_buf[j+1] = ((x & 0xFF00) >> 8);
+                    overlay_buf[j+0] = (x & 0x00FF);
                     //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
                     
 
@@ -634,11 +638,6 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
                     //log_warn("Out of bounds for in fading");
                 }
             }
-            uint16_t to_write_16 = (uint16_t) to_write;
-            //overlay_buf[j+1] = (uint8_t) (to_write_16 & 0xFF00 >> 8);
-            //overlay_buf[j+0] = (uint8_t) (to_write_16 & 0x00FF);
-            
-            //log_trace("Data in overlay buffer for index %i now: %i (%c)", j, overlay_buf[j], overlay_buf[j]);
         }
         memcpy(new_buf + offset, overlay_buf, overlay_buf_len);
         free(overlay_buf);
@@ -673,6 +672,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
  */
 unsigned int target_grains_per_s = 15;
 
+/*
 granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int* len_out, 
     const unsigned int bytes_per_sample, const int samplerate)
 {
@@ -834,7 +834,7 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     
 
     //all original grains are now created
-    shuffle_pointer((void*) grains, num_grains);
+    //shuffle_pointer((void*) grains, num_grains);
     //log_trace("Grains shuffled");
 
     //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
@@ -842,7 +842,7 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     {
         //int timefactor = rand() % 3; //between 1 and 3
         //timefactor = pow(2, timefactor);
-        int timefactor = 2; //TODO change timefactor and randomize
+        int timefactor = 1; //TODO change timefactor and randomize
         grains[i]->used_time_factor = timefactor;
     }
 
@@ -907,6 +907,7 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
         grain_print_complete(grains[i]);
     }*/
 
+/*
     //write granular_info for returning filter coefficients
     info->num_samples = num_grains;
     for (int i = 0; i < num_grains; i++)
@@ -925,3 +926,4 @@ granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int
     *buf_out = new_buf;
     return info;
 }
+*/
