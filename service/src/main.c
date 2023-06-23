@@ -341,7 +341,7 @@ void granulize_call()
 		bytes_per_sample = 1;
 	}
 
-	granular_info* info = granulize_v2(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, samplerate);
+	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, samplerate);
 	if (!info)
 	{
 		printf("Error granulizing\n");
