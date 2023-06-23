@@ -284,6 +284,103 @@ int gen_exp_adsr(float attack, float attack_height, float decay, float sustain, 
   return written;
 }
 
+
+static grain** create_grains(char *buf, int buf_len, int normal_grain_len, int last_grain_len, int num_grains)
+{
+    //create array which holds pointers to individual grains
+    grain **grains = calloc(num_grains, sizeof(grain*));
+    
+    const int grain_overlapping_len = normal_grain_len;
+
+    for (int i=0; i < num_grains -1; i++)
+    { //even sized grains
+        grain *g = grain_create();
+        g->orig_pos = i;
+
+        //create actual grain
+        g->buf_len = normal_grain_len;
+        g->buf = malloc(g->buf_len * sizeof(char));
+        int offset_bytes = i * normal_grain_len * sizeof(char);
+        void* p_to_cpy_from = buf + offset_bytes;
+        memcpy(g->buf, p_to_cpy_from, g->buf_len);
+        
+        //fill buffer before the actual grain
+        int offset_bytes_before = offset_bytes - normal_grain_len;
+        int buf_before_len = normal_grain_len; //TODO change, depending on how you want the overlapping
+        if (offset_bytes_before < 0) //catch out of bounds read
+        {
+            offset_bytes_before = offset_bytes;
+            buf_before_len = offset_bytes;
+        }
+        if (buf_before_len != 0)
+        {
+            g->buf_before = malloc(buf_before_len * sizeof(char));
+            p_to_cpy_from = buf + offset_bytes_before;
+            memcpy(g->buf_before, p_to_cpy_from, buf_before_len);
+        } else {
+            g->buf_before = NULL;
+        }
+        g->buf_before_len = buf_before_len;
+        log_trace("Buf before, Len: %i, offset: %i", g->buf_before_len, offset_bytes_before);
+        
+        //fill buffer after the actual grain
+        int offset_bytes_after = offset_bytes + normal_grain_len; //start position
+        int buf_after_len = normal_grain_len; //TODO change, depending on how you want the overlapping
+        if (offset_bytes_after + buf_after_len > buf_len) //catch out of bounds write
+        {
+            buf_after_len = buf_len - offset_bytes_after;
+        }
+        log_trace("Buf after, Len: %i, offset: %i", buf_after_len, offset_bytes_after);
+        g->buf_after = malloc(buf_after_len * sizeof(char));
+        p_to_cpy_from = buf + offset_bytes_after;
+        memcpy(g->buf_after, p_to_cpy_from, buf_after_len);
+        g->buf_after_len = buf_after_len;
+
+        log_trace("New grain created for index %i", i);
+        grains[i] = g;
+    }
+    log_trace("Create special last grain");
+    //last special shorter grain
+    grain *g = grain_create();
+    g->buf_len = last_grain_len;
+    g->buf = malloc(g->buf_len * sizeof(char));
+    g->orig_pos = num_grains-1;
+    int offset = (num_grains -1) * normal_grain_len;
+    void* p_to_cpy_from = buf + offset;
+    log_trace("Buf, Len: %i, offset: %i", g->buf_len, offset);
+    memcpy(g->buf, p_to_cpy_from, g->buf_len);
+
+    //write before buffer for this special grain
+    int offset_bytes_before = (num_grains -1) * normal_grain_len - normal_grain_len;
+    int buf_before_len = normal_grain_len; //TODO maybe change, depending on how you want the overlapping
+    if (offset_bytes_before < 0)
+    {
+        log_warn("Offset bytes before < 0, is the provided data too short?");
+        //buf_before_len = offset_bytes;
+    }
+    log_trace("Buf before, Len: %i, offset: %i", buf_before_len, offset_bytes_before);
+    g->buf_before = malloc(buf_before_len * sizeof(char));
+    g->buf_before_len = buf_before_len;
+    p_to_cpy_from = buf + offset_bytes_before;
+    memcpy(g->buf_before, p_to_cpy_from, g->buf_before_len);
+    
+    //fill buffer after the actual grain with 0, since it is the last grain
+    g->buf_after_len = 0;
+    g->buf_after = NULL;
+
+    grains[num_grains - 1] = g;
+    //done creating all grains
+
+    return grains;
+}
+
+/**
+ * @brief Sets the number of grains per second in a wave file. 
+ * This is used by the main function and the 'set option granular_rate' command, 
+ * which changes this parameter. 
+ */
+unsigned int target_grains_per_s = 15;
+
 granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, int* len_out, 
     const unsigned int bytes_per_sample, const int samplerate)
 {
@@ -345,99 +442,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         return NULL;
     }
 
-    //create grains:
-    grain *grains[num_grains];
-
-
-    const int grain_overlapping_len = normal_grain_len;
-
-    for (int i=0; i < num_grains -1; i++)
-    { //even sized grains
-        grain *g = grain_create();
-        g->orig_pos = i;
-
-        //create actual grain
-        g->buf_len = normal_grain_len;
-        g->buf = malloc(g->buf_len * sizeof(char));
-        int offset_bytes = i * normal_grain_len * sizeof(char);
-        void* p_to_cpy_from = buf + offset_bytes;
-        memcpy(g->buf, p_to_cpy_from, g->buf_len);
-        
-        //fill buffer before the actual grain
-        int offset_bytes_before = offset_bytes - normal_grain_len;
-        int buf_before_len = normal_grain_len; //TODO change, depending on how you want the overlapping
-        if (offset_bytes_before < 0) //catch out of bounds read
-        {
-            offset_bytes_before = offset_bytes;
-            buf_before_len = offset_bytes;
-        }
-        if (buf_before_len != 0)
-        {
-            g->buf_before = malloc(buf_before_len * sizeof(char));
-            p_to_cpy_from = buf + offset_bytes_before;
-            memcpy(g->buf_before, p_to_cpy_from, buf_before_len);
-        } else {
-            g->buf_before = NULL;
-        }
-        g->buf_before_len = buf_before_len;
-        log_trace("Buf before, Len: %i, offset: %i", g->buf_before_len, offset_bytes_before);
-        
-
-        //fill buffer after the actual grain
-        int offset_bytes_after = offset_bytes + normal_grain_len; //start position
-        int buf_after_len = normal_grain_len; //TODO change, depending on how you want the overlapping
-        if (offset_bytes_after + buf_after_len > buf_len) //catch out of bounds write
-        {
-            buf_after_len = buf_len - offset_bytes_after;
-        }
-        log_trace("Buf after, Len: %i, offset: %i", buf_after_len, offset_bytes_after);
-        g->buf_after = malloc(buf_after_len * sizeof(char));
-        p_to_cpy_from = buf + offset_bytes_after;
-        memcpy(g->buf_after, p_to_cpy_from, buf_after_len);
-        g->buf_after_len = buf_after_len;
-
-        log_trace("New grain created for index %i", i);
-        grains[i] = g;
-    }
-    log_trace("Create special last grain");
-    //last special shorter grain
-    grain *g = grain_create();
-    g->buf_len = last_grain_len;
-    g->buf = malloc(g->buf_len * sizeof(char));
-    g->orig_pos = num_grains-1;
-    int offset = (num_grains -1) * normal_grain_len;
-    void* p_to_cpy_from = buf + offset;
-    log_trace("Buf, Len: %i, offset: %i", g->buf_len, offset);
-    memcpy(g->buf, p_to_cpy_from, g->buf_len);
-
-    //write before buffer for this special grain
-    int offset_bytes_before = (num_grains -1) * normal_grain_len - normal_grain_len;
-    int buf_before_len = normal_grain_len; //TODO maybe change, depending on how you want the overlapping
-    if (offset_bytes_before < 0)
-    {
-        log_warn("Offset bytes before < 0, is the provided data too short?");
-        //buf_before_len = offset_bytes;
-    }
-    log_trace("Buf before, Len: %i, offset: %i", buf_before_len, offset_bytes_before);
-    g->buf_before = malloc(buf_before_len * sizeof(char));
-    g->buf_before_len = buf_before_len;
-    p_to_cpy_from = buf + offset_bytes_before;
-    memcpy(g->buf_before, p_to_cpy_from, g->buf_before_len);
-    
-    //fill buffer after the actual grain with 0, since it is the last grain
-    g->buf_after_len = 0;
-    g->buf_after = NULL;
-
-    grains[num_grains - 1] = g;
-    //done creating all grains
-
-
-    //debug grains array:
-    for (int i = 0; i < num_grains; i++)
-    {
-        grain_print(grains[i]);
-        //grain_print_complete(grains[i]);
-    }
+    grain **grains = create_grains(buf, buf_len, normal_grain_len, last_grain_len, num_grains);
 
     //all original grains are now created
     shuffle_pointer(grains, num_grains);
@@ -470,7 +475,6 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         {
             if (g->buf_len != 0)
             {
-                    
                 char *buf_reversed;
                 reverse(g->buf, &buf_reversed, g->buf_len, bytes_per_sample);
                 free(g->buf);
@@ -495,7 +499,6 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         //time factor adjusting, if there is a buffer to work on
         int abs_time_factor = abs(g->used_time_factor);
 
-        
         char *buf_new;
         char *buf_new_before;
         char *buf_new_after;
@@ -518,7 +521,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         
         if (g->buf_before_len != 0)
         {
-            int res_time_factor_before = scale_array_custom_sample_length(g->buf_before, 
+            scale_array_custom_sample_length(g->buf_before, 
             &buf_new_before, 
             g->buf_before_len, abs_time_factor, bytes_per_sample);
             free(g->buf_before);
@@ -539,7 +542,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     }
 
     log_debug("Start with building new sample");
-    offset = 0;
+    int offset = 0;
     char *new_buf = calloc(new_buf_len, sizeof(char));
     
     //build new grains. Contains original grains and overlapping in between
@@ -560,17 +563,6 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         log_trace("Created overlay buffer with len %i, buf_after_len %i, buf_before_len %i", 
             overlay_buf_len, g_current->buf_after_len, g_next->buf_before_len);
 
-/*      
-        //scale current and after buffer:
-        char *buf_new_after_fade_out;
-        char *buf_new_after_fade_in;
-        int res_time_factor_after = scale_array_custom_sample_length(g_current->buf_after, 
-            &buf_new_after_fade_out, 
-            g_current->buf_after_len, g_current->used_time_factor, bytes_per_sample);
-        res_time_factor_after = scale_array_custom_sample_length(g_next->buf_before, 
-            &buf_new_after_fade_in, 
-            g_next->buf_before_len, g_current->used_time_factor, bytes_per_sample);
-*/
         //fade in + fade out
         for (int j = 0; j < overlay_buf_len; j += bytes_per_sample)
         {
@@ -579,7 +571,7 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
             factor_decreasing = (a * factor_decreasing) + 1;
             double factor_increasing = 1 - factor_decreasing;
             
-            if (factor_decreasing >= 0.99) { //normalizing, does it have an effect?
+            if (factor_decreasing >= 0.99) { //normalizing for anti clipping
                 factor_decreasing = 1;
             } else if (factor_decreasing <= 0.01) {
                 factor_decreasing = 0;
@@ -590,21 +582,12 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
                 factor_increasing = 0;
             }
 
-            //log_trace("Factor decreasing for %i = %lf, increasing = %lf", j, 
-            //    factor_decreasing, factor_increasing);
-            
-            uint16_t to_write = 0;
             //fade out for g_current after data
             if (g_current)
             {
                 if (j + 3 < g_current->buf_after_len)
                 {
-                    
-                    //memcpy(overlay_buf + j, g_current->buf_after + j, bytes_per_sample);
-                    //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
                     int16_t x = (g_current->buf_after[j+1] << 8) & 0xFF00 | (g_current->buf_after[j+0] << 0) & 0xFF;
-                    //log_trace("number: 0x%x", x);
-                    //log_trace("A: %lf", factor_increasing);
                     x = (uint16_t) (x * factor_decreasing);
                     overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
                     overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
@@ -614,26 +597,12 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
             {
                 if (j + 3 < g_next->buf_before_len) //fade in for g_next before data
                 {
-                    //memcpy(overlay_buf + j, g_next->buf_before + j, bytes_per_sample);
-                    //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
                     int16_t x       = (g_next->buf_before[j+1] << 8) & 0xFF00 | (g_next->buf_before[j+0] << 0) & 0xFF;
                     uint16_t orig    = (overlay_buf[j+1] << 8) & 0xFF00 | (overlay_buf[j+0] << 0) & 0xFF;
-                    //log_trace("number: 0x%x", x);
-                    //log_trace("A: %lf", factor_increasing);
-                    //to_write += (uint16_t) (x * factor_increasing);
                     x = (uint16_t) (x * factor_increasing);
                     x += orig;
                     overlay_buf[j+1] = ((x & 0xFF00) >> 8);
                     overlay_buf[j+0] = (x & 0x00FF);
-                    //log_trace("0: %x, 1: %x", overlay_buf[j], overlay_buf[j+1]);
-                    
-
-    //                { //important, copy in chunks and not byte by byte
-        //                overlay_buf[j] += 
-  //                      (unsigned char) (factor_increasing * (double) g_next->buf_before[j]);
-                    
-//                    }
-                    //log_trace("Wrote fade in");
                 } else {
                     //log_warn("Out of bounds for in fading");
                 }
@@ -644,8 +613,6 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
         offset += overlay_buf_len;
         
     }
-    
-
     //last grain is special, just copy it
     
     //cleanup
@@ -653,277 +620,9 @@ granular_info* granulize_v2(const char* buf, const int buf_len, char** buf_out, 
     {
         grain_destroy(grains[i]);
     }
+    free(grains);
 
-    for (int i = 0; i < num_grains; i++) //debug
-    {
-        //grain_print_complete(grains[i]);
-    }
-
-    //return
     *len_out = new_buf_len;
     *buf_out = new_buf;
     return info;
 }
-
-/**
- * @brief Sets the number of grains per second in a wave file. 
- * This is used by the main function and the 'set option granular_rate' command, 
- * which changes this parameter. 
- */
-unsigned int target_grains_per_s = 15;
-
-/*
-granular_info* granulize(const char* buf, const int buf_len, char** buf_out, int* len_out, 
-    const unsigned int bytes_per_sample, const int samplerate)
-{
-    log_trace("Starting granulize algorithm with params: buf_len %i, bytes_per_sample %i, samplerate: %i", 
-        buf_len, bytes_per_sample, samplerate);
-    
-    int num_grains = 0;
-    int normal_grain_len = 0;
-    int last_grain_len = 0;
-
-    if (bytes_per_sample != 1)
-    { //more difficult case for .wav data
-        //grains_len has to be minimum bytes_per_sample, choose length so it is
-
-        num_grains = (int) ((double)buf_len / (double) samplerate * (double)target_grains_per_s);
-        if (buf_len % bytes_per_sample != 0)
-        {
-            log_warn("Invalid data for granulizing provided");
-            printf("Error, unaligned data for granulize provided\n");
-            return NULL;
-        }
-        //units in bytes
-        normal_grain_len = ((int) ((double) buf_len / 2 / (double) num_grains)) * 2;
-        last_grain_len = buf_len - (normal_grain_len * (num_grains - 1));
-        
-        log_trace("num_grains: %i, normal_grain_len: %i, last_grain_len: %i", num_grains, normal_grain_len, last_grain_len);
-        
-        if (num_grains <= 1)
-        {
-            return NULL;
-        }
-    } else { //bytes_per_sample = 1, easy case
-        log_trace("Detected .pcm granulize data on byte level");
-        num_grains = buf_len;
-        normal_grain_len = 1;
-        last_grain_len = 1;
-    }
-
-    //create granular info for returning:
-    granular_info* info = malloc(sizeof(granular_info));
-	if (!info)
-    {
-        return NULL;
-    }
-    info->num_samples = num_grains;
-	info->order_samples 	= calloc(num_grains, sizeof(int));
-	if (!info->order_samples)
-    {
-        destroy_granular_info(info);
-        return NULL;
-    }
-    info->order_timelens 	= calloc(num_grains, sizeof(int));
-    if (!info->order_timelens)
-    {
-        destroy_granular_info(info);
-        return NULL;
-    }
-    info->order_buffer_lens = calloc(num_grains, sizeof(int));
-    if (!info->order_buffer_lens)
-    {
-        destroy_granular_info(info);
-        return NULL;
-    }
-    //create grains:
-    grain *grains[num_grains];
-    for (int i=0; i < num_grains; i++)
-    {
-        grains[i] = NULL;
-    }
-    
-    for (int i=0; i < num_grains -1; i++)
-    { //even sized grains
-        grain *g = grain_create();
-        if (!g)
-        {
-            for (int i=0; i < num_grains; i++) //cleanup
-            {
-                if (grains[i] != NULL)
-                {
-                    grain_destroy(grains[i]);
-                    grains[i] = NULL;
-                }
-            }
-            destroy_granular_info(info);
-            log_error("Error creating grain");
-            return NULL;
-        }
-        g->orig_pos = i;
-
-        //create actual grain
-        g->buf_len = last_grain_len;
-        g->buf = malloc(g->buf_len * sizeof(char));
-        if (!g->buf)
-        { //abort
-            for (int i=0; i < num_grains; i++) 
-            { //cleanup
-                if (grains[i] != NULL)
-                {
-                    grain_destroy(grains[i]);
-                    grains[i] = NULL;
-                }
-            }
-            destroy_granular_info(info);
-            log_error("Error mallocing buffer");
-            return NULL;
-        }
-        int offset_bytes = i * normal_grain_len * sizeof(char);
-        void* p_to_cpy_from = buf + offset_bytes;
-        memcpy(g->buf, p_to_cpy_from, g->buf_len * sizeof(char));
-
-        log_trace("New grain created for index %i: %p with buf_len %i", i, g, g->buf_len);
-        grains[i] = g;
-    }
-    //last special shorter grain
-    grain *g = grain_create();
-    if (!g)
-    {
-        for (int i=0; i < num_grains; i++) //cleanup
-        {
-            if (grains[i] != NULL)
-            {
-                grain_destroy(grains[i]);
-                grains[i] = NULL;
-            }
-        }
-        destroy_granular_info(info);
-        log_error("Error creating grain");
-        return NULL;
-    }
-    g->buf_len = last_grain_len;
-    g->buf = malloc(g->buf_len * sizeof(char));
-    if (!g->buf)
-    {
-        for (int i=0; i < num_grains; i++) 
-        { //cleanup
-            if (grains[i] != NULL)
-            {
-                grain_destroy(grains[i]);
-                grains[i] = NULL;
-            }
-        }
-        destroy_granular_info(info);
-        log_error("Error mallocing buffer");
-        return NULL;
-    }
-    g->orig_pos = num_grains-1;
-    log_trace("Create shorter special grain, buf_len %i, orig_pos %i", g->buf_len, g->orig_pos);
-    void* p_to_cpy_from = buf + (num_grains -1) * normal_grain_len;
-    memcpy(g->buf, p_to_cpy_from, g->buf_len);
-    grains[num_grains - 1] = g;
-    //done creating all grains
-
-    //debug grains array:
-    
-    for (int i = 0; i < num_grains; i++)
-    {
-        grain_print_complete(grains[i]);
-    }
-    
-
-    //all original grains are now created
-    //shuffle_pointer((void*) grains, num_grains);
-    //log_trace("Grains shuffled");
-
-    //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
-    for (int i = 0; i < num_grains; i++)
-    {
-        //int timefactor = rand() % 3; //between 1 and 3
-        //timefactor = pow(2, timefactor);
-        int timefactor = 1; //TODO change timefactor and randomize
-        grains[i]->used_time_factor = timefactor;
-    }
-
-    int new_buf_len = 0;
-    //create new grains with new timefactor
-    for (int i = 0; i < num_grains; i++)
-    {
-        grain *g = grains[i];
-        //time factor adjusting
-        int abs_time_factor = abs(g->used_time_factor);
-        char *buf_new;
-        int res_time_factor = scale_array_custom_sample_length(g->buf, &buf_new, 
-            g->buf_len, abs_time_factor, bytes_per_sample);
-        if (res_time_factor < 0)
-        {
-            //TODO return with error
-        }
-        if (abs_time_factor * g->buf_len != res_time_factor)
-        {
-            log_trace("Abs time factor: %i, real_time_factor: %i", abs_time_factor, res_time_factor);
-            log_warn("Scale array did not work due unaligned data. Reset this grains timefactor and length");
-            g->used_time_factor = res_time_factor;
-            abs_time_factor = res_time_factor;
-        }
-        //write in new buffer
-        free(g->buf);
-        g->buf = buf_new;
-        log_trace("Old buf len %i", g->buf_len);
-        log_trace("Abs time factor: %i", abs_time_factor);
-        g->buf_len = g->buf_len * abs_time_factor;
-        log_trace("Changed new buf len to %i", g->buf_len);
-        new_buf_len += g->buf_len;
-    }
-    log_trace("New buffer len: %i", new_buf_len);
-
-    int offset = 0;
-    char *new_buf = malloc(new_buf_len);
-    if (!new_buf)
-    {
-        for (int i = 0; i < num_grains; i++)
-        {
-            grain_destroy(grains[i]);
-        }
-        destroy_granular_info(info);
-        log_error("Erro allocating memory for new buffer");
-        return NULL;
-    }
-    //build new grains. Contains original grains and overlapping between
-    for (int i = 0; i < num_grains; i++)
-    {
-        //log_trace("Next grain with index %i", i);
-        grain *g_current = grains[i];
-        //copy current grain
-        memcpy(new_buf + offset, g_current->buf, g_current->buf_len);
-        
-        offset += g_current->buf_len;
-    }
-
-    /*
-    for (int i = 0; i < num_grains; i++) //debug
-    {
-        grain_print_complete(grains[i]);
-    }*/
-
-/*
-    //write granular_info for returning filter coefficients
-    info->num_samples = num_grains;
-    for (int i = 0; i < num_grains; i++)
-    {
-        info->order_samples[i] = grains[i]->orig_pos;
-        info->order_timelens[i] = grains[i]->used_time_factor;
-        info->order_buffer_lens[i] = grains[i]->buf_len;
-    }
-    //cleanup
-    for (int i = 0; i < num_grains; i++)
-    {
-        grain_destroy(grains[i]);
-    }
-    //return
-    *len_out = new_buf_len;
-    *buf_out = new_buf;
-    return info;
-}
-*/
