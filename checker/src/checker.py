@@ -190,6 +190,7 @@ class GranulizerChecker(BaseChecker):
                 index_read = g * this_grain_timelen + grain_offset
                 orig_grain[g] = bytes_in[index_read]
 
+            #second * this_grain_timelen is necessary to skip the smoothing grains in between correct data
             grain_offset += this_grain_timelen * this_grain_len * this_grain_timelen
             grains_list[this_grain_orig_pos] = orig_grain #add reconstructed grain to list
             

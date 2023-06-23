@@ -1,10 +1,12 @@
 import tkinter as tk               
 from tkinter import font as tkfont
+import sv_ttk
 
 from PageConnect import *
 from PageLogin import *
 from PageRegister import *
 from PageStart import *
+from PageMenu import *
 
 class SampleApp(tk.Tk):
 
@@ -19,13 +21,14 @@ class SampleApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (PageConnect, PageStart, PageLogin, PageRegister):
+        for F in (PageConnect, PageStart, PageLogin, PageRegister, PageMenu):
             page_name = F.__name__
             frame = F(parent=container, controller=self)
             self.frames[page_name] = frame
             frame.grid(row=0, column=0, sticky="nsew")
 
-        self.show_frame("PageConnect")
+        #self.show_frame("PageConnect")
+        self.show_frame("PageMenu")
 
     def show_frame(self, page_name):
         frame = self.frames[page_name]
@@ -35,5 +38,8 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.info("Start client")
+    
     app = SampleApp()
+    app.call("source", "/home/luca/Dokumente/Uni/Informatik/CTFProject/code/enowars7-service-granulizer/client/azure.tcl")
+    app.call("set_theme", "dark")
     app.mainloop()
