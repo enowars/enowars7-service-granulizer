@@ -92,7 +92,6 @@ void sharing_use_key_call(const char* own_username, const char* username, const 
         printf("Error reading key\n");
         return;
     }
-    printf("Read key: %s\n", key);
     if (strncmp(entered_key, key, 2*SHA256_SIZE_BYTES) != 0)
     {
         printf("Wrong key provided\n");

