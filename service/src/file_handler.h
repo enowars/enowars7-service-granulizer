@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "granular.h"
+
 typedef struct WavHeader {
   uint32_t ChunkID;
   uint32_t ChunkSize;
@@ -31,5 +33,7 @@ int write_wav(const char* file_name, const char* p_data, const WavHeader* w_head
 bool file_ends_with(const char* str, const char* ending);
 
 bool path_contains_illegal_chars(const char* str);
+
+void granulize_file(const char* file_path, const char* user, granular_info **granular_info);
 
 #endif

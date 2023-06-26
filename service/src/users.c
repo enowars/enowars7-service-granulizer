@@ -1,6 +1,3 @@
-#include "users.h"
-#include "log.c/log.h"
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,11 +6,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <ftw.h>
+
+#include "users.h"
+#include "log.c/log.h"
+#include "sha256/sha256.h"
+
 #define _XOPEN_SOURCE 500
-
-
-//Contains complete user file
-char user_file_content[MAX_LEN_USER_FILE];
 
 bool exist_username_with_password(const char* username_in, const char* password_in)
 {
@@ -147,4 +145,81 @@ int add_user(const char* username, const char* pwd)
     add_user_folder_and_password(username, pwd);
 
     return 0;
+}
+
+int write_key(const char* user_name, const char* key)
+{
+	char path[128] = "users/";
+    strcat(path, user_name);
+    strcat(path, "/");
+	strcat(path, "key.txt");
+
+    FILE *fp = fopen(path, "w");
+	if (!fp)
+	{
+		return 1;
+	}
+	int res = fwrite(key, strlen(key), 1, fp);
+	if (res != 1)
+	{
+		log_warn("Couldn't write complete key to key.txt, abort");
+		return 1;
+	}
+	res = fclose(fp);
+	if (res != 0)
+	{
+		log_warn("Couldn't properly close stream to key.txt file");
+		return 1;
+	}
+    return 0;
+}
+
+int read_key(const char* user_name, char** key_back)
+{
+	char path[128] = "users/";
+    strcat(path, user_name);
+    strcat(path, "/");
+	strcat(path, "key.txt");
+
+	if (access(path, F_OK) != 0) { //check if file exist
+		return 1;
+	}
+
+	FILE *fp = fopen(path, "r");
+	if (!fp)
+	{
+		return 1;
+	}
+
+	//get file length
+	fseek(fp, 0, SEEK_END);
+	long size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	if (size < 64)
+	{
+		log_warn("Broken key file.");
+		return 1;
+	}
+
+	char hash[2 * SHA256_SIZE_BYTES + 1]; //2 * SHA256 since 1 byte is represented and written as two hex bytes
+	fread(hash, 2 * SHA256_SIZE_BYTES, 1, fp);
+	hash[2 * SHA256_SIZE_BYTES] = 0;
+
+	fclose(fp);
+
+	*key_back = strdup(hash);	
+	return 0;
+}
+
+int delete_key(const char* user_name)
+{
+	char path[128] = "users/";
+    strcat(path, user_name);
+    strcat(path, "/");
+	strcat(path, "key.txt");
+
+	remove(path);
+
+	return 0;
 }

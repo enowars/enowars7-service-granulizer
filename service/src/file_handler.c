@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 
+#include "granular.h"
 #include "log.c/log.h"
 
 
@@ -300,4 +301,144 @@ bool path_contains_illegal_chars(const char* str)
         }
     }
     return true;
+}
+
+void granulize_file(const char* file_path, const char* user, granular_info **granular_current_info)
+{
+    log_trace("File path: %s\n", file_path);
+	enum FILE_MODE {
+		PCM,
+		WAV
+	};
+
+	//check that file name is valid
+	char *dot = strrchr(file_path, '.');
+	if (!dot)
+	{
+		printf("File ending is missing\n");
+		return;
+	}
+	if (strcmp(dot, ".wav") && strcmp(dot, ".pcm"))
+	{
+		printf("file has to end with .wav or .pcm\n");
+		return;
+	}
+	log_debug("Correct file ending: %s", dot);
+
+	int len;
+	char* p_data;
+	WavHeader* w_header = NULL;
+	enum FILE_MODE file_mode;
+
+	if (!strcmp(dot, ".wav"))
+	{
+		file_mode = WAV;
+		len = read_wav(file_path, &p_data, &w_header);
+		if (len < 1)
+		{
+			log_error("No data from read_wav, abort granulization");
+			printf("Error reading file\n");
+			return;
+		}
+	} else if (!strcmp(dot, ".pcm"))
+	{
+		file_mode = PCM;
+		len = read_pcm(file_path, &p_data);
+		if (len < 1)
+		{
+			log_error("No data from read_pcm, abort granulization");
+			printf("Error reading file\n");
+			return;
+		}
+	} else {
+		log_error("no pcm or wav file for input, instead: %s", dot);
+		printf("Error, wrong file format");
+		return;
+	}
+	log_info("Successfully read data");
+
+	//handle data:
+	char *new_sample;
+	int new_sample_len;
+	int bytes_per_sample;
+	int samplerate;
+	if (w_header)
+	{
+		log_trace("Wheader available");
+		samplerate = w_header->SampleRate;
+		bytes_per_sample = w_header->BitsPerSample / 8;
+		log_info("Bytes per sample read: %i", bytes_per_sample);
+	} else {
+		log_trace("Wheader not available");
+		samplerate = 10;
+		bytes_per_sample = 1;
+	}
+
+	granular_info* info = granulize(p_data, len, &new_sample, &new_sample_len, bytes_per_sample, samplerate);
+	if (!info)
+	{
+		printf("Error granulizing\n");
+		if (w_header)
+		{
+			free(w_header);
+			w_header = NULL;
+		}
+		if (p_data)
+		{
+			free(p_data);
+			p_data = NULL;
+		}
+		return;
+	}
+	if (p_data)
+	{
+		free(p_data);
+		p_data = NULL;
+	}
+
+	if (*granular_current_info)
+	{
+		destroy_granular_info(*granular_current_info);
+		*granular_current_info = NULL;
+	}
+	*granular_current_info = info;
+
+	//write data to users folder
+    char file_name_complete[128];
+	memset(file_name_complete, 0, 128);
+	strcpy(file_name_complete, "users/");
+	strcat(file_name_complete, user);
+	strcat(file_name_complete, "/");
+	
+	//write file
+	if (file_mode == WAV)
+	{
+		strcat(file_name_complete, "granulized.wav");
+		write_wav(file_name_complete, new_sample, w_header, new_sample_len);
+	} else if (file_mode == PCM)
+	{
+		strcat(file_name_complete, "granulized.pcm");
+		write_pcm(file_name_complete, new_sample, new_sample_len);
+	} else {
+		printf("Error, wrong file format");
+		log_error("no pcm or wav file for input, instead: %s", dot);
+		if (new_sample)
+		{
+			free(new_sample);
+		}
+		return;
+	}
+
+	if (new_sample)
+	{
+		free(new_sample);
+	}
+	if (w_header)
+	{
+		free(w_header);
+		w_header = NULL;
+	}
+
+	printf("written to file %s\n", file_name_complete);
+	log_info("written to file %s", file_name_complete);
 }
