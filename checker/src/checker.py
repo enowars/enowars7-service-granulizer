@@ -35,7 +35,7 @@ class GranulizerChecker(BaseChecker):
     flag_variants = 1
     noise_variants = 0
     havoc_variants = 0
-    exploit_variants = 1
+    exploit_variants = 2
 
     service_name = "granulizer"
     port = 2345  # The port will automatically be picked up as default by self.connect and self.http.
@@ -221,7 +221,6 @@ class GranulizerChecker(BaseChecker):
         value_int = int(value_string)
         
         return value_int
-
 
 
     def helper_parse_bytearray_to_list(self, byte_array):
@@ -480,6 +479,8 @@ class GranulizerChecker(BaseChecker):
             self.debug("Correct hash!")
             
             return reversed
+        elif self.variant_id == 1:
+            pass
         else:
             raise EnoException("Wrong variant_id provided: {}".format(self.variant_id))
 

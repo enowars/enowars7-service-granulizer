@@ -12,7 +12,6 @@
 
 long long get_time_milliseconds() {
     struct timeval tv;
-
     gettimeofday(&tv,NULL);
     return (((long long)tv.tv_sec)*1000)+(tv.tv_usec/1000);
 }
@@ -27,7 +26,7 @@ char* generate_key(const char* username)
         value_str[i] = 0;
     }
     snprintf(value_str, 256, "%ld", timestamp);
-
+    
     for (size_t i=0; i < strlen(username); i++)
     { 
         //append username after timestamp in string, which length is sizeof(unsigned long) for its datatype
