@@ -497,6 +497,8 @@ static void set_option_granular_rate()
 	const int MIN_OPTION_GRANULAR_RATE = 2;
 	const int MAX_OPTION_GRANULAR_RATE = 200;
 
+	log_trace("Set option granular rate print");
+
 	char* in = ask("Number of grains per second: (default 10) ");
 	int num = atoi(in);
 	if (num == 0)
@@ -515,6 +517,9 @@ static void set_option_granular_rate()
 	}
 	extern int target_grains_per_s;
 	target_grains_per_s = num;
+
+	log_info("Successful set option granular rate to %i", num);
+	printf("ok\n");
 }
 
 static void sharing_allow()

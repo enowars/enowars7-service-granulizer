@@ -10,7 +10,7 @@ from tkinter import messagebox
 from tkdial import *
 import tkinterDnD
 import socket
-import logging
+from playsound import playsound
 import time
 import base64
 
@@ -120,12 +120,35 @@ class PageMenu(tk.Frame):
         self.chosen_filename = tk.filedialog.askopenfilename(master=self)
         self.uploadFile(self.chosen_filename)
 
+    def sendCurrentOptions(self, option_granular_rate: int):
+        self.controller.sock.send(b'set option granular_rate\n')
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if 'Number of grains per second:' not in res:
+            self.label_error.config(text="Unexpected answer from server")
+            return False
+        self.controller.sock.send(str(option_granular_rate).encode('utf-8'))
+        self.controller.sock.send(b'\n')
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if 'ok\n' not in res:
+            print("Wrong answer:", res)
+            self.label_error.config(text="Error setting option 'granular rate'")
+            return False
+        return True
+
     def granulizeAction(self, event=None):
         #send granulize command to granulize tmp.wav / tmp.pcm
         self.label_error.config(text="")
 
         if self.tmp_filename is None:
             self.label_error.config(text="Upload a file first")
+            return
+        
+        worked = self.sendCurrentOptions(self.dialGrainsPerSecond.get())
+        if not worked:
             return
         
         self.controller.sock.send(b'granulize\n')
@@ -180,13 +203,20 @@ class PageMenu(tk.Frame):
         
         #decode and write to file
         decode_base64_to_file(res, file_out_name) 
-    
+        print("File downloaded successfully")
 
     def playAction(self, event=None):
         print("PLAY")
         self.download_file()
         
+        #play sound
+        if self.tmp_filename == b"tmp.wav\n":
+            playsound('tmp_out.wav')
+            print("File played")
+        else:
+            self.label_error.config(text="Raw data file was downloaded into tmp.pcm, but can't be played")
 
+        
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
@@ -194,11 +224,11 @@ class PageMenu(tk.Frame):
         label = tk.Label(self, text="Granulizer", font=controller.title_font)
         label.pack(side="top", fill="x", pady=10)
 
-        dialGrainsPerSecond = Dial(master=self, color_gradient=("black", "red"),
+        self.dialGrainsPerSecond = Dial(master=self, color_gradient=("black", "red"),
                 unit_length=30, radius=100, text_color="white", 
                 needle_color="red", text="Grains per s: ",
                 integer=True, scroll_steps=1, start=2, end=200, )
-        dialGrainsPerSecond.pack()
+        self.dialGrainsPerSecond.pack()
 
         buttonSelectUpload = tk.Button(self, text='Open File', command=self.uploadAction)
         buttonSelectUpload.pack(side="left")
