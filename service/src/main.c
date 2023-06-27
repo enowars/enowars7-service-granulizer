@@ -11,7 +11,7 @@
 #include <readline/history.h>
 
 #include "users.h"
-#include "base64.h"
+#include "b64.c/b64.h"
 #include "granular.h"
 #include "file_handler.h"
 #include "sharing.h"
@@ -33,6 +33,11 @@
 
 char* current_user = NULL;
 granular_info* last_granular_info = NULL;
+
+static int base64encode_len(int len)
+{
+    return ((len + 2) / 3 * 4) + 1;
+}
 
 static void quit_call()
 {
@@ -312,9 +317,11 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	char input[MAX_FILE_UPLOAD_LEN];
+	//char input[MAX_FILE_UPLOAD_LEN];
 	//decode and write to file:
-	int len = Base64decode(input, base64encoded);
+	char *input = b64_decode(base64encoded, strlen(base64encoded));
+	//int len = Base64decode(input, base64encoded);
+	int len = strlen(input);
 	log_trace("Inputted length: %i", strlen(base64encoded));
 	log_trace("Decoded %i bytes of original base64 file", len);
 	free(base64encoded);
@@ -324,7 +331,6 @@ void upload_file(const char* ending)
 		printf("Error parsing the b64. Is the uploaded string maximum %i bytes long?\n", MAX_FILE_UPLOAD_LEN);
 		return;
 	}
-
 
 	//build complete filepath with name
 	char file_name_complete[128];
@@ -438,7 +444,7 @@ void download_file_call(const char* ending)
 		free(path_cpy);
 		return;
 	}
-	int approx_new_len = Base64encode_len(file_len);
+	int approx_new_len = base64encode_len(file_len);
 	if (approx_new_len >= MAX_FILE_DOWNLOAD_LEN)
 	{
 		log_warn("Download failed due to too big file size of %i instead of %i\n", approx_new_len, MAX_FILE_DOWNLOAD_LEN);
@@ -448,8 +454,9 @@ void download_file_call(const char* ending)
 		return;
 	}
 	//b64 encode
-	char encoded[MAX_FILE_DOWNLOAD_LEN]; //currently support 1Mb for debugging
-	file_len = Base64encode(encoded, p_buf, file_len);
+	//char encoded[MAX_FILE_DOWNLOAD_LEN]; //currently support 1Mb for debugging
+	//file_len = Base64encode(encoded, p_buf, file_len);
+	char *encoded = b64_encode(p_buf, file_len);
 	printf("File: \n%s\n", encoded);
 	log_info("Successfully sent file");
 	
