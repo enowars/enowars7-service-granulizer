@@ -64,8 +64,6 @@ bool exist_username_with_password(const char* username_in, const char* password_
 	return false;
 }
 
-
-
 bool exist_username(const char* username_in)
 {
 	return exist_username_with_password(username_in, NULL);
@@ -107,7 +105,8 @@ static int rmrf(char *path)
     return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 }
 
-void add_user_folder_and_password(const char* username, const char* password)
+//Registers the given user
+bool add_user_folder_and_password(const char* username, const char* password)
 {
     //remove user folder for clean beginning
     char path[128] = "users/";
@@ -128,26 +127,19 @@ void add_user_folder_and_password(const char* username, const char* password)
 	FILE *fp = fopen(path, "w");
 	if (!fp)
 	{
-		return;
+		return false;
 	}
-	fwrite(password, strlen(password), 1, fp);
+	int res = fwrite(password, strlen(password), 1, fp);
+	if (res != 1)
+	{
+		fclose(fp);
+		return false;
+	}
 	fclose(fp);
-
+	return true;
 }
 
-/**
- * Register the given user.
- * Adds users info to users-info.txt, creates user folder
- *
- */
-int add_user(const char* username, const char* pwd)
-{	
-    add_user_folder_and_password(username, pwd);
-
-    return 0;
-}
-
-int write_key(const char* user_name, const char* key)
+bool write_key(const char* user_name, const char* key)
 {
 	char path[128] = "users/";
     strcat(path, user_name);
@@ -157,24 +149,24 @@ int write_key(const char* user_name, const char* key)
     FILE *fp = fopen(path, "w");
 	if (!fp)
 	{
-		return 1;
+		return false;
 	}
 	int res = fwrite(key, strlen(key), 1, fp);
 	if (res != 1)
 	{
 		log_warn("Couldn't write complete key to key.txt, abort");
-		return 1;
+		return false;
 	}
 	res = fclose(fp);
 	if (res != 0)
 	{
 		log_warn("Couldn't properly close stream to key.txt file");
-		return 1;
+		return false;
 	}
-    return 0;
+    return true;
 }
 
-int read_key(const char* user_name, char** key_back)
+bool read_key(const char* user_name, char** key_back)
 {
 	char path[128] = "users/";
     strcat(path, user_name);
@@ -182,44 +174,74 @@ int read_key(const char* user_name, char** key_back)
 	strcat(path, "key.txt");
 
 	if (access(path, F_OK) != 0) { //check if file exist
-		return 1;
+		return false;
 	}
 
 	FILE *fp = fopen(path, "r");
 	if (!fp)
 	{
-		return 1;
+		return false;
 	}
 
 	//get file length
-	fseek(fp, 0, SEEK_END);
+	int res = fseek(fp, 0, SEEK_END);
+	if (res != 0)
+	{
+		printf("Error processing file\n");
+		log_warn("Error seeking to end of file %s", "key.txt");
+		fclose(fp);
+		return false;
+	}
 	long size = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-
-	if (size < 64)
+	if (size <= 0)
+	{
+		log_warn("Ftell returned unexpected value of %i.", size);
+		fclose(fp);
+		return false;
+	}
+	res = fseek(fp, 0, SEEK_SET);
+	if (res != 0)
+	{
+		printf("Error processing file\n");
+		log_warn("Error seeking to begin of file %s", "key.txt");
+		fclose(fp);
+		return false;
+	}
+	if (size < 2 * SHA256_SIZE_BYTES)
 	{
 		log_warn("Broken key file.");
-		return 1;
+		fclose(fp);
+		return false;
 	}
 
 	char hash[2 * SHA256_SIZE_BYTES + 1]; //2 * SHA256 since 1 byte is represented and written as two hex bytes
-	fread(hash, 2 * SHA256_SIZE_BYTES, 1, fp);
-	hash[2 * SHA256_SIZE_BYTES] = 0;
+	res = fread(hash, 2 * SHA256_SIZE_BYTES, 1, fp);
+	if (res != 1)
+	{
+		log_warn("Error reading from key file");
+		fclose(fp);
+		return false;
+	}
+	hash[2 * SHA256_SIZE_BYTES] = 0; //null terminate
 
 	fclose(fp);
 
 	*key_back = strdup(hash);	
-	return 0;
+	return true;
 }
 
-int delete_key(const char* user_name)
+bool delete_key(const char* user_name)
 {
 	char path[128] = "users/";
     strcat(path, user_name);
     strcat(path, "/");
 	strcat(path, "key.txt");
 
-	remove(path);
-
-	return 0;
+	int res = remove(path);
+	if (res != 0)
+	{
+		log_warn("Key couldn't be removed");
+		return false;
+	}
+	return true;
 }

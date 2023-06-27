@@ -1,9 +1,10 @@
 #include "sharing.h"
 
 #include <stdio.h>
-#include <sys/time.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "users.h"
 #include "file_handler.h"
@@ -57,8 +58,8 @@ void sharing_allow_call(const char* username)
         return;
     }
 
-    int res = write_key(username, key);
-    if (res != 0)
+    bool worked = write_key(username, key);
+    if (!worked)
     {
         printf("Error writing key\n");
         free(key);
@@ -73,21 +74,32 @@ void sharing_allow_call(const char* username)
 
 void sharing_disallow_call(const char* username)
 {
-    int res = delete_key(username);
-    if (res != 0)
+    bool res = delete_key(username);
+    if (!res)
     {
         printf("Error deleting key\n");
-        return;
+    } else {
+        printf("Key deleted successfully\n");
     }
-    printf("Key deleted successfully\n");
+}
+
+//checks if a key file for this exists
+bool sharing_is_allowed(const char* username)
+{
+    char path[128] = "users/";
+    strcat(path, username);
+    strcat(path, "/");
+	strcat(path, "key.txt");
+
+	return (access(path, F_OK) == 0); //check if the file exist
 }
 
 void sharing_use_key_call(const char* own_username, const char* username, const char* entered_key, const char* filename,
     granular_info** current_granular_info)
 {
     char *key;
-    int res = read_key(username, &key);
-    if (res != 0)
+    bool res = read_key(username, &key);
+    if (!res)
     {
         printf("Error reading key\n");
         return;
@@ -98,7 +110,7 @@ void sharing_use_key_call(const char* own_username, const char* username, const 
         free(key);
         return;
     }
-    
+    free(key);
 
 	//build path
 	char file_path[128];
@@ -114,6 +126,4 @@ void sharing_use_key_call(const char* own_username, const char* username, const 
 
     //granulize this file
     granulize_file(file_path, own_username, current_granular_info);
-
-    free(key);
 }

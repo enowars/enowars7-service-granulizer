@@ -13,19 +13,19 @@ bool exist_username_with_password(const char* username_in, const char* password_
 
 bool exist_username(const char* username_in);
 
-int add_user(const char* username, const char* pwd);
+bool add_user_folder_and_password(const char* username, const char* password);
 
 /**
  * @brief Writes the given key for the given user to it's key file, the 'key.txt'.
  * If this file already exist, it will be overwritten, otherwise it will be newly created.
  * 
- * @return int 0 for success, otherwise != 0.
+ * @return true for success, otherwise false
  */
-int write_key(const char* user_name, const char* key);
+bool write_key(const char* user_name, const char* key);
 
-int read_key(const char* user_name, char** key_back);
+bool read_key(const char* user_name, char** key_back);
 
-int delete_key(const char* user_name);
+bool delete_key(const char* user_name);
 
 
 #endif

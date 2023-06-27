@@ -236,11 +236,17 @@ void register_user()
 	if (exist)
 	{
 		printf("user already exist!\n");
-		log_trace("Couldnt create user '%s' - already exists", username_cpy);
+		log_warn("Couldnt create user '%s' - already exists", username_cpy);
 	} else {
-		add_user(username_cpy, password_cpy);
-		printf("ok\n");
-		log_trace("User '%s' created successfully", username_cpy);
+		bool worked = add_user_folder_and_password(username_cpy, password_cpy);
+		if (worked)
+		{
+			printf("ok\n");
+			log_trace("User '%s' created successfully", username_cpy);
+		} else {
+			printf("error creating user\n");
+			log_warn("User '%s' couldn't be created", username_cpy);
+		}	
 	}
 	free(username_cpy);
 	free(password_cpy);
@@ -555,7 +561,13 @@ static void set_option_grain_timelength()
 
 static void sharing_allow()
 {
-	sharing_allow_call(current_user);
+	if (!sharing_is_allowed(current_user))
+	{
+		sharing_allow_call(current_user);
+	} else {
+		printf("Sharing is already allowed\n");
+	}
+	
 }
 
 static void sharing_disallow()
