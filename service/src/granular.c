@@ -29,6 +29,11 @@ unsigned int target_grains_per_s = TARGET_GRAINS_PER_S_DEFAULT;
  */
 unsigned int grain_timefactor_scale = GRAIN_TIMEFACTOR_SCALE_DEFAULT;
 
+/**
+ * @brief Sets the volume of the new sample.
+ * Integer is between 1 (really quiet) and 100 (original loudness).
+ */
+unsigned int sample_volume = SAMPLE_VOLUME_DEFAULT;
 
 
 static void shuffle_pointer(void** array, size_t n) {
@@ -397,6 +402,35 @@ static void apply_random_timefactors(grain** grains, int num_grains)
     }*/
 }
 
+static void apply_new_volume(char *new_buf, int new_buf_len, int bytes_per_sample)
+{
+    double factor_volume = sample_volume / 100.0;
+    log_debug("Apply volume factor of: %lf", factor_volume);
+    for (int j=0; j < new_buf_len; j += bytes_per_sample)
+    {
+        if (bytes_per_sample == 1)
+        {
+            int8_t x = ((new_buf[j+0] << 0) & 0xFF);
+            x = (uint8_t) (x * factor_volume);
+            new_buf[j+0] = (uint8_t) (x & 0x00FF);
+        } else if (bytes_per_sample == 2) {
+            int16_t x = ((new_buf[j+1] << 8) & 0xFF00) | 
+                        ((new_buf[j+0] << 0) & 0xFF);
+            x = (uint16_t) (x * factor_volume);
+            new_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
+            new_buf[j+0] = (uint8_t) (x & 0x00FF);
+        } else if (bytes_per_sample == 3) {
+            int32_t x = ((new_buf[j+2] << 16) & 0x00FF0000) | 
+                        ((new_buf[j+1] << 8)  & 0x0000FF00) | 
+                        ((new_buf[j+0] << 0)  & 0x000000FF);
+            x = (uint32_t) (x * factor_volume);
+            new_buf[j+2] = (uint8_t) ((x & 0xFF0000) >> 16);
+            new_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
+            new_buf[j+0] = (uint8_t) (x & 0x00FF);
+        }
+    }
+}
+
 static int change_grains(grain** grains, int num_grains, int bytes_per_sample, int overlay_len)
 {
     int new_buf_len = 0; //length of new buffer, with correct applied timelengths
@@ -545,8 +579,7 @@ static char* build_new_sample(grain** grains, int num_grains,
                         x = (uint16_t) (x * factor_decreasing);
                         overlay_buf[j+1] = (uint8_t) ((x & 0xFF00) >> 8);
                         overlay_buf[j+0] = (uint8_t) (x & 0x00FF);
-                    } else if (bytes_per_sample == 3)
-                    {
+                    } else if (bytes_per_sample == 3) {
                         int32_t x = ((g_current->buf_after[j+2] << 16) & 0x00FF0000) | 
                                     ((g_current->buf_after[j+1] << 8)  & 0x0000FF00) | 
                                     ((g_current->buf_after[j+0] << 0)  & 0x000000FF);
@@ -668,6 +701,12 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
 
     char *new_buf = build_new_sample(grains, num_grains, bytes_per_sample, new_buf_len, info);
     log_debug("Done building new sample");
+
+    //apply new volume
+    if (sample_volume != 100)
+    {
+        apply_new_volume(new_buf, new_buf_len, bytes_per_sample);
+    }
 
     //cleanup
     for (int i = 0; i < num_grains; i++)

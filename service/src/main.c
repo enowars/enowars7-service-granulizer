@@ -87,31 +87,10 @@ bool containsIllegalChars(const char* input) {
 void setup_service()
 {
 	//TODO comment in again
-	//srand(time(NULL)); //create random seed
+	srand(time(NULL)); //create random seed
 
 	add_user_base_folder();
-
-	FILE* fp = fopen("users/users-info.txt", "r");
-	
-	if (fp != NULL && !FORCE_NEW_SETUP)
-	{ //file already exist, do not perform setup
-		fclose(fp);
-		return;
-	}
-	//file doesn't exist, fclose is not necessary then
-	
-	//create empty file
-	fp = fopen("users/users-info.txt", "w");
-	if (!fp)
-	{
-		return;
-	}
-	fclose(fp);
-
-	
-
 }
-
 
 /**
  * Login prompt and checking.
@@ -558,6 +537,35 @@ static void set_option_grain_timelength()
 	printf("ok\n");
 }
 
+static void set_option_volume()
+{
+	const int MIN_OPTION_VOLUME = 1;
+	const int MAX_OPTION_VOLUME = 100;
+
+	log_trace("Set option volume");
+
+	char* in = ask("New volume of sample: (default 100) ");
+	int num = atoi(in);
+	if (num == 0)
+	{
+		printf("Error for numerical input\n");
+		log_error("Error for input of set option volume");
+		return;
+	}
+	
+	if (num < MIN_OPTION_VOLUME || num > MAX_OPTION_VOLUME)
+	{
+		printf("Error, input has to be between %i and %i\n", 
+			MIN_OPTION_VOLUME, MAX_OPTION_VOLUME);
+		log_error("Input out of range");
+		return;
+	}
+	extern int sample_volume;
+	sample_volume = num;
+
+	log_info("Successful set option volume to %i", num);
+	printf("ok\n");
+}
 
 static void sharing_allow()
 {
@@ -620,6 +628,7 @@ static void help_call()
 	printf("granulize info - more details about last granulization process\n");
 	printf("set option granular_rate - sets the number of grains per second for a wave file. 10 is the default value\n");
 	printf("set option grain timelength - sets the length of the new sample. 2 is the default value.\n");
+	printf("set option volume - sets the volume of the output sample. Has to be between 1 - 100. 100 is the default value, which is the highest volume\n");
 	printf("sharing allow - allows access for of own granulized files for other users. A key will be generated and prompted which can be used to access the personal account.\n");
 	printf("sharing disallow - disallows the sharing (default = disallow).\n");
 	printf("sharing use key - uses a key to access other users shared granulized files\n");
@@ -677,6 +686,7 @@ int main()
 		{ "granulize\n", granulize_call },
 		{ "set option granular_rate\n", set_option_granular_rate },
 		{ "set option grain timelength\n", set_option_grain_timelength },
+		{ "set option volume\n", set_option_volume },
 		{ "sharing allow\n", sharing_allow },
 		{ "sharing disallow\n", sharing_disallow },
 		{ "sharing use key\n", sharing_use_key },

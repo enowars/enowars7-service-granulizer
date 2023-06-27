@@ -123,7 +123,10 @@ class PageMenu(tk.Frame):
         self.chosen_filename = tk.filedialog.askopenfilename(master=self)
         self.uploadFile(self.chosen_filename)
 
-    def sendCurrentOptions(self, option_granular_rate: int, option_timelength: int):
+    def sendCurrentOptions(self, 
+                            option_granular_rate: int, 
+                            option_timelength: int,
+                            option_volume: int):
         #option granular rate
         self.controller.sock.send(b'set option granular_rate\n')
         time.sleep(0.1)
@@ -142,7 +145,7 @@ class PageMenu(tk.Frame):
             self.label_error.config(text="Error setting option 'granular rate'")
             return False
         
-        #option granular rate
+        #option grain timelength
         self.controller.sock.send(b'set option grain timelength\n')
         time.sleep(0.1)
         res = self.controller.sock.recv(4096)
@@ -151,6 +154,24 @@ class PageMenu(tk.Frame):
             self.label_error.config(text="Unexpected answer from server")
             return False
         self.controller.sock.send(str(option_timelength).encode('utf-8'))
+        self.controller.sock.send(b'\n')
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if 'ok\n' not in res:
+            print("Wrong answer:", res)
+            self.label_error.config(text="Error setting option 'granular rate'")
+            return False
+
+        #option volume
+        self.controller.sock.send(b'set option volume\n')
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if 'New volume of sample:' not in res:
+            self.label_error.config(text="Unexpected answer from server")
+            return False
+        self.controller.sock.send(str(option_volume).encode('utf-8'))
         self.controller.sock.send(b'\n')
         time.sleep(0.1)
         res = self.controller.sock.recv(4096)
@@ -170,8 +191,10 @@ class PageMenu(tk.Frame):
             self.label_error.config(text="Upload a file first")
             return
         
-        worked = self.sendCurrentOptions(self.dialGrainsPerSecond.get(),
-            self.dialSampleTimelength.get())
+        worked = self.sendCurrentOptions(
+            self.dialGrainsPerSecond.get(),
+            self.dialSampleTimelength.get(),
+            self.dialVolume.get())
         
         if not worked:
             return
@@ -256,18 +279,29 @@ class PageMenu(tk.Frame):
         label = tk.Label(self, text="Granulizer", font=controller.title_font)
         label.pack(side="top", fill="x", pady=10)
 
+        frameDials = tk.Frame(self)
+        frameDials.pack(side="right")
+
         self.dialGrainsPerSecond = Dial(master=self, color_gradient=("black", "red"),
                 unit_length=30, radius=100, text_color="white", 
                 needle_color="red", text="Grains per s: ",
                 integer=True, scroll_steps=1, start=2, end=200, )
-        self.dialGrainsPerSecond.pack()
+        self.dialGrainsPerSecond.set(10)
+        self.dialGrainsPerSecond.pack(in_=frameDials, side="right")
 
         self.dialSampleTimelength = Dial(master=self, color_gradient=("white", "blue"),
                 unit_length=30, radius=100, text_color="white", 
                 needle_color="blue", text="Timelength: ",
                 integer=True, scroll_steps=1, start=1, end=10, )
         self.dialSampleTimelength.set(2)
-        self.dialSampleTimelength.pack()
+        self.dialSampleTimelength.pack(in_=frameDials, side="right")
+
+        self.dialVolume = Dial(master=self, color_gradient=("black", "green"),
+                unit_length=30, radius=100, text_color="white", 
+                needle_color="green", text="Volume: ",
+                integer=True, scroll_steps=1, start=1, end=100, )
+        self.dialVolume.set(100)
+        self.dialVolume.pack(in_=frameDials, side="right")
 
         frameUpload = tk.Frame(self)
         frameUpload.pack(side="left")
@@ -279,14 +313,14 @@ class PageMenu(tk.Frame):
         buttonSelectUpload.pack(in_=frameUpload, side="bottom")
 
         buttonGranulize = tk.Button(self, text='Granulize', command=self.granulizeAction)
-        buttonGranulize.pack(side="left")
+        buttonGranulize.pack(in_=frameUpload, side="bottom")
 
         buttonPlay = tk.Button(self, text='Play Granulized', command=self.playAction)
-        buttonPlay.pack(side="left")
+        buttonPlay.pack(in_=frameUpload, side="bottom")
 
         buttonLogout = tk.Button(self, text="Logout",
                            command=self.logout)
-        buttonLogout.pack(side="left")
+        buttonLogout.pack(in_=frameUpload, side="bottom")
 
         self.label_error = tk.Label(self, text="")
         self.label_error.pack(side="top", fill="x", pady=10)

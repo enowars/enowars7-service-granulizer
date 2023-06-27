@@ -40,6 +40,7 @@ if __name__ == "__main__":
     logging.info("Start client")
     
     app = SampleApp()
+    app.title("Granulizer Client")
     app.call("source", "azure/azure.tcl")
     app.call("set_theme", "dark")
     app.mainloop()
