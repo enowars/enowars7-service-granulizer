@@ -58,5 +58,9 @@ class PageRegister(tk.Frame):
                                 entry_password.get()))
         button.pack()
 
+        buttonBack = tk.Button(self, text="Back",
+                           command=lambda:self.controller.show_frame("PageStart"))
+        buttonBack.pack()
+
         self.label_error = tk.Label(self, text="")
         self.label_error.pack(side="top", fill="x", pady=10)

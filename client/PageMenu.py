@@ -52,11 +52,14 @@ def read_line(sock: socket):
 
 class PageMenu(tk.Frame):
 
+    def uploadBachAction(self):
+        self.uploadFile("bach.wav")
+
     def uploadFile(self, filename):
         #assumes that we are logged in
 
         #TODO remove
-        filename = "/home/luca/Dokumente/Uni/Informatik/CTFProject/code/enowars7-service-granulizer/service/src/users/a/bach.wav"
+        #filename = "/home/luca/Dokumente/Uni/Informatik/CTFProject/code/enowars7-service-granulizer/service/src/users/a/bach.wav"
 
         #check if file has correct ending
         filetype = ""
@@ -238,7 +241,14 @@ class PageMenu(tk.Frame):
         else:
             self.label_error.config(text="Raw data file was downloaded into tmp.pcm, but can't be played")
 
-        
+    def logout(self):
+        print("Logging out")
+        self.controller.sock.send(b'quit\n')
+        time.sleep(0.1)
+        self.controller.sock.close()
+        self.controller.show_frame("PageConnect")
+        print("Logged out")
+    
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
@@ -259,14 +269,24 @@ class PageMenu(tk.Frame):
         self.dialSampleTimelength.set(2)
         self.dialSampleTimelength.pack()
 
+        frameUpload = tk.Frame(self)
+        frameUpload.pack(side="left")
+
+        buttonSelectBach = tk.Button(self, text='Open Bach', command=self.uploadBachAction)
+        buttonSelectBach.pack(in_=frameUpload, side="bottom")
+
         buttonSelectUpload = tk.Button(self, text='Open File', command=self.uploadAction)
-        buttonSelectUpload.pack(side="left")
+        buttonSelectUpload.pack(in_=frameUpload, side="bottom")
 
         buttonGranulize = tk.Button(self, text='Granulize', command=self.granulizeAction)
         buttonGranulize.pack(side="left")
 
         buttonPlay = tk.Button(self, text='Play Granulized', command=self.playAction)
         buttonPlay.pack(side="left")
+
+        buttonLogout = tk.Button(self, text="Logout",
+                           command=self.logout)
+        buttonLogout.pack(side="left")
 
         self.label_error = tk.Label(self, text="")
         self.label_error.pack(side="top", fill="x", pady=10)
