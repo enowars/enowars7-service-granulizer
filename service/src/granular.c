@@ -14,6 +14,23 @@
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
 
+
+/**
+ * @brief Sets the number of grains per second in a wave file. 
+ * This is used by the main function and the 'set option granular_rate' command, 
+ * which changes this parameter. 
+ */
+unsigned int target_grains_per_s = TARGET_GRAINS_PER_S_DEFAULT;
+
+/**
+ * @brief Sets the length of the new grains in a wave file. 
+ * For PCM files, the timefactor scale will be always the default value.
+ * This option for wave files can be applied by the user by using the 'set option time_factor' command.
+ */
+unsigned int grain_timefactor_scale = GRAIN_TIMEFACTOR_SCALE_DEFAULT;
+
+
+
 static void shuffle_pointer(void** array, size_t n) {
     srand(time(NULL)); // seed the random number generator
 
@@ -267,68 +284,6 @@ static void grain_destroy(grain *g)
     free(g);
 }
 
-/*
-   Generates an exponential ADSR Envelope with the given times and writes it to the given buffer.
-   The buffer has to have the size samplerate * (attack + decay + sustain + release).
-
-   attack:          attack time in s
-   attack_height:   highest point of attack
-   decay:           decay time in s
-   sustain:         sustain time in s
-   sustain_height:  sustain height, should not be higher than attack_height
-   release:         release time in s
-   
-   Returns number of floats written to buffer
- */
-int gen_exp_adsr(float attack, float attack_height, float decay, float sustain, float sustain_height, float release, int samplerate, float* buf) {
-  
-  int written = 0;
-
-  int len_attack  = attack * samplerate;
-  int len_decay   = decay * samplerate;
-  int len_sustain = sustain * samplerate;
-  int len_release = release * samplerate;
-
-  //attack (exponential)
-  //exp: a*e^(x) - 1
-  //exponent is scaled to len_attack, so it's always between 0 and 1
-  float a = attack_height/(M_E-1);
-  for ( int i=0; i < len_attack; i++ ) {
-    float value = expf(i/((float)len_attack - 1) ) - 1;
-    value = a * value;
-    buf[written] = value;
-    written++;
-  }
-  float highest_point = buf[written - 1];
-  
-  //decay (exponential)
-  a = - highest_point/(M_E-1) * sustain_height;
-  for ( int i=1; i <= len_decay; i++ ) {
-    float value = expf(i/((float)len_decay) ) - 1;
-    value = (a * value)  + highest_point;
-    buf[written] = value;
-    written++;
-  }
-  
-  //sustain (linear):
-  for ( int i=0; i < len_sustain; i++ ) {
-    buf[written] = sustain_height;
-    written++;
-  }
-
-  //release (exponential), same principe as decay:
-  a = - sustain_height/(M_E-1);
-  for ( int i=1; i <= len_release; i++ ) {
-    float value = expf(i/((float)len_release) ) - 1;
-    value = (a * value)  + sustain_height;
-    buf[written] = value;
-    written++;
-  }
-
-  return written;
-}
-
-
 static grain** create_grains(char *buf, int buf_len, int normal_grain_len, int last_grain_len, int num_grains)
 {
     //create array which holds pointers to individual grains
@@ -418,7 +373,16 @@ static grain** create_grains(char *buf, int buf_len, int normal_grain_len, int l
 
 static void apply_random_timefactors(grain** grains, int num_grains)
 {
+    for (int i = 0; i < num_grains; i++)
+    {
+        grains[i]->used_time_factor = grain_timefactor_scale;
+    }
+
+    /*
+     * This code can be used in future if the granulizing algorithm is ready for different timelengths.
+    */
     //apply random timefactor for each grain. Timefactor is maximum MAX_TIMEFACTOR, and could be negative
+    /*
     for (int i = 0; i < num_grains; i++)
     {
         //int timefactor = (rand() % MAX_TIMEFACTOR) + 1;
@@ -430,7 +394,7 @@ static void apply_random_timefactors(grain** grains, int num_grains)
             timefactor = -timefactor;
         }
         grains[i]->used_time_factor = timefactor;
-    }
+    }*/
 }
 
 static int change_grains(grain** grains, int num_grains, int bytes_per_sample, int overlay_len)
@@ -647,13 +611,6 @@ static char* build_new_sample(grain** grains, int num_grains,
     return new_buf;
 }
 
-/**
- * @brief Sets the number of grains per second in a wave file. 
- * This is used by the main function and the 'set option granular_rate' command, 
- * which changes this parameter. 
- */
-unsigned int target_grains_per_s = 15;
-
 granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_out, 
     const unsigned int bytes_per_sample, const int samplerate)
 {
@@ -700,6 +657,8 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
     shuffle_pointer((void**)grains, num_grains);
     log_debug("Grains shuffled");
 
+    //apply set timefactor for wav, otherwise default value
+    //TODO implement that
     apply_random_timefactors(grains, num_grains);
     log_debug("Applied new timefactors for grains");
 

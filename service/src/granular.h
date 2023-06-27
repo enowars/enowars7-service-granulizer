@@ -1,7 +1,10 @@
 #ifndef _GRANULAR_H
 #define _GRANULAR_H
 
-#define MAX_TIMEFACTOR ((int) 3)
+#define MAX_TIMEFACTOR 						((int) 3)
+
+#define TARGET_GRAINS_PER_S_DEFAULT 		((int) 10)
+#define GRAIN_TIMEFACTOR_SCALE_DEFAULT 		((int) 2)
 
 typedef struct granular_info {
 	int num_samples;

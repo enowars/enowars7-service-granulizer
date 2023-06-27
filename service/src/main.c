@@ -24,9 +24,9 @@
 #define MIN_FILENAME_LEN ((int) 5)
 #define MAX_FILENAME_LEN ((int) 64 + 5)
 
-#define MAX_FILE_UPLOAD_LEN 500000
-//1Mb of maximum file size for downloading
-#define MAX_FILE_DOWNLOAD_LEN 1048576
+#define MAX_FILE_UPLOAD_LEN ((int) 500000)
+//5Mb of maximum file size for downloading
+#define MAX_FILE_DOWNLOAD_LEN ((int) 1024 * 1024 * 5)
 
 //Flag for debugging, forces the creation of a new clean setup when service is started
 #define FORCE_NEW_SETUP false
@@ -497,7 +497,7 @@ static void set_option_granular_rate()
 	const int MIN_OPTION_GRANULAR_RATE = 2;
 	const int MAX_OPTION_GRANULAR_RATE = 200;
 
-	log_trace("Set option granular rate print");
+	log_trace("Set option granular rate");
 
 	char* in = ask("Number of grains per second: (default 10) ");
 	int num = atoi(in);
@@ -521,6 +521,37 @@ static void set_option_granular_rate()
 	log_info("Successful set option granular rate to %i", num);
 	printf("ok\n");
 }
+
+static void set_option_grain_timelength()
+{
+	const int MIN_OPTION_TIMELENGTH = 1;
+	const int MAX_OPTION_TIMELENGTH = 10;
+
+	log_trace("Set option grain timelength");
+
+	char* in = ask("New timelength of sample: (default 2) ");
+	int num = atoi(in);
+	if (num == 0)
+	{
+		printf("Error for numerical input\n");
+		log_error("Error for input of set option granular rate");
+		return;
+	}
+	
+	if (num < MIN_OPTION_TIMELENGTH || num > MAX_OPTION_TIMELENGTH)
+	{
+		printf("Error, input has to be between %i and %i\n", 
+			MIN_OPTION_TIMELENGTH, MAX_OPTION_TIMELENGTH);
+		log_error("Input out of range");
+		return;
+	}
+	extern int grain_timefactor_scale;
+	grain_timefactor_scale = num;
+
+	log_info("Successful set option grain timelength to %i", num);
+	printf("ok\n");
+}
+
 
 static void sharing_allow()
 {
@@ -576,6 +607,7 @@ static void help_call()
 	printf("granulize - performs granulization algorithm with random parameters on .pcm or .wav file\n");
 	printf("granulize info - more details about last granulization process\n");
 	printf("set option granular_rate - sets the number of grains per second for a wave file. 10 is the default value\n");
+	printf("set option grain timelength - sets the length of the new sample. 2 is the default value.\n");
 	printf("sharing allow - allows access for of own granulized files for other users. A key will be generated and prompted which can be used to access the personal account.\n");
 	printf("sharing disallow - disallows the sharing (default = disallow).\n");
 	printf("sharing use key - uses a key to access other users shared granulized files\n");
@@ -632,6 +664,7 @@ int main()
 		{ "granulize info\n", granulize_info_call },
 		{ "granulize\n", granulize_call },
 		{ "set option granular_rate\n", set_option_granular_rate },
+		{ "set option grain timelength\n", set_option_grain_timelength },
 		{ "sharing allow\n", sharing_allow },
 		{ "sharing disallow\n", sharing_disallow },
 		{ "sharing use key\n", sharing_use_key },

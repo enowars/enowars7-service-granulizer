@@ -120,7 +120,8 @@ class PageMenu(tk.Frame):
         self.chosen_filename = tk.filedialog.askopenfilename(master=self)
         self.uploadFile(self.chosen_filename)
 
-    def sendCurrentOptions(self, option_granular_rate: int):
+    def sendCurrentOptions(self, option_granular_rate: int, option_timelength: int):
+        #option granular rate
         self.controller.sock.send(b'set option granular_rate\n')
         time.sleep(0.1)
         res = self.controller.sock.recv(4096)
@@ -137,6 +138,25 @@ class PageMenu(tk.Frame):
             print("Wrong answer:", res)
             self.label_error.config(text="Error setting option 'granular rate'")
             return False
+        
+        #option granular rate
+        self.controller.sock.send(b'set option grain timelength\n')
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if 'New timelength of sample:' not in res:
+            self.label_error.config(text="Unexpected answer from server")
+            return False
+        self.controller.sock.send(str(option_timelength).encode('utf-8'))
+        self.controller.sock.send(b'\n')
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if 'ok\n' not in res:
+            print("Wrong answer:", res)
+            self.label_error.config(text="Error setting option 'granular rate'")
+            return False
+
         return True
 
     def granulizeAction(self, event=None):
@@ -147,7 +167,9 @@ class PageMenu(tk.Frame):
             self.label_error.config(text="Upload a file first")
             return
         
-        worked = self.sendCurrentOptions(self.dialGrainsPerSecond.get())
+        worked = self.sendCurrentOptions(self.dialGrainsPerSecond.get(),
+            self.dialSampleTimelength.get())
+        
         if not worked:
             return
         
@@ -229,6 +251,13 @@ class PageMenu(tk.Frame):
                 needle_color="red", text="Grains per s: ",
                 integer=True, scroll_steps=1, start=2, end=200, )
         self.dialGrainsPerSecond.pack()
+
+        self.dialSampleTimelength = Dial(master=self, color_gradient=("white", "blue"),
+                unit_length=30, radius=100, text_color="white", 
+                needle_color="blue", text="Timelength: ",
+                integer=True, scroll_steps=1, start=1, end=10, )
+        self.dialSampleTimelength.set(2)
+        self.dialSampleTimelength.pack()
 
         buttonSelectUpload = tk.Button(self, text='Open File', command=self.uploadAction)
         buttonSelectUpload.pack(side="left")
