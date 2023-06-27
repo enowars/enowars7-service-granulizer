@@ -30,6 +30,26 @@ def decode_base64_to_file(base64_string: str, filename: str):
     with open(filename, 'wb') as file:
         file.write(binary_data)
 
+#makes sure that the buffer is not read too far
+def read_line_byte_by_byte(sock: socket):
+    data = b""
+    while True:
+        chunk = sock.recv(1)
+        data += chunk
+        if b"\n" in chunk:
+            break
+    return data.decode('utf-8')
+
+#sometimes also reads data in after '\n', for precise reading use read_line_byte_by_byte
+def read_line(sock: socket):
+    data = b""
+    while True:
+        chunk = sock.recv(4096)
+        data += chunk
+        if b"\n" in chunk:
+            break
+    return data.decode('utf-8')
+
 class PageMenu(tk.Frame):
 
     def uploadFile(self, filename):
@@ -150,14 +170,14 @@ class PageMenu(tk.Frame):
             self.controller.sock.send(b'granulized.pcm\n')
         time.sleep(0.5)
 
-        #TODO implement correct reading of base64 
-        res = self.controller.sock.recv(4096000)
-        res = res.decode('utf-8')
+        read_line_byte_by_byte(self.controller.sock)
+        read_line_byte_by_byte(self.controller.sock)
+        res = read_line(self.controller.sock)
+        
         res = res.split('\n')
-        res = res[2]
+        res = res[0]
         res = res.replace('\n', '')
-        print(res)
-        print(len(res))
+        
         #decode and write to file
         decode_base64_to_file(res, file_out_name) 
     
