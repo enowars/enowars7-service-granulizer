@@ -20,7 +20,7 @@ cleaner () {
     echo "Cleaner function will now regularly clean"
     while true; do
         echo "$CLEANUP_DIR" $(whoami)
-        find "$CLEANUP_DIR" -regex "$CLEANUP_DIR/.+" -mmin +30 -delete
+        find "$CLEANUP_DIR" -regex "$CLEANUP_DIR/.+" -empty -mmin +30 -delete
         sleep 60
     done
 }
