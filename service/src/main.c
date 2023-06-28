@@ -7,8 +7,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <readline/readline.h>
-#include <readline/history.h>
 
 #include "users.h"
 #include "b64.c/b64.h"
@@ -24,7 +22,7 @@
 #define MIN_FILENAME_LEN ((int) 5)
 #define MAX_FILENAME_LEN ((int) 64 + 5)
 
-#define MAX_FILE_UPLOAD_LEN ((int) 500000)
+#define MAX_FILE_UPLOAD_LEN ((int) 1024 * 1024 * 5)
 //5Mb of maximum file size for downloading
 #define MAX_FILE_DOWNLOAD_LEN ((int) 1024 * 1024 * 5)
 
@@ -281,8 +279,6 @@ static char* build_user_path(const char* file_name)
 
 void upload_file(const char* ending)
 {
-	//log_trace("Upload file (with ending) call");
-
 	char* file_name_in = ask("Enter file name for new file: ");
 	if (!file_ends_with(file_name_in, ending))
 	{
@@ -303,9 +299,16 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	printf("Enter base64 encoded wave file (maximum 4kB bytes long)\n");	
-	char *base64encoded = readline(NULL); //readline is important to use due to the big buffer size
-	
+	printf("Enter base64 encoded wave file (maximum 4kB bytes long)\n");
+	char *base64encoded = calloc(MAX_FILE_UPLOAD_LEN + 1, sizeof(char));
+	char *res = fgets(base64encoded, MAX_FILE_DOWNLOAD_LEN, stdin); //TODO allocates much memory, refactor
+	if (res == NULL)
+	{
+		printf("Error reading base64 data\n");
+		log_warn("Error reading uploading base64 input");
+		free(base64encoded);
+		return;
+	} 
 	if (base64encoded == NULL)
 	{
 		return;
@@ -317,18 +320,18 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	//char input[MAX_FILE_UPLOAD_LEN];
 	//decode and write to file:
-	char *input = b64_decode(base64encoded, strlen(base64encoded));
-	//int len = Base64decode(input, base64encoded);
+	char *input = (char *) b64_decode(base64encoded, strlen(base64encoded));
 	int len = strlen(input);
 	log_trace("Inputted length: %i", strlen(base64encoded));
 	log_trace("Decoded %i bytes of original base64 file", len);
 	free(base64encoded);
+
 	if (len <= 0)
 	{
 		log_warn("Error parsing the b64: %s", base64encoded);
 		printf("Error parsing the b64. Is the uploaded string maximum %i bytes long?\n", MAX_FILE_UPLOAD_LEN);
+		free(input);
 		return;
 	}
 
@@ -345,6 +348,7 @@ void upload_file(const char* ending)
 		perror("fopen");
 		printf("Error opening file\n");
 		log_warn("Error opening file");
+		free(input);
 		return;
 	}
 
@@ -353,9 +357,11 @@ void upload_file(const char* ending)
 	{
 		printf("Error writing to file\n");
 		log_warn("Error writing to file");
+		free(input);
 		return;
 	}
 	fclose(fp); //TODO error handling here
+	free(input);
 	log_trace("Success uploaded file to %s", file_name_complete);
 
 	//TODO error checking
@@ -454,12 +460,18 @@ void download_file_call(const char* ending)
 		return;
 	}
 	//b64 encode
-	//char encoded[MAX_FILE_DOWNLOAD_LEN]; //currently support 1Mb for debugging
-	//file_len = Base64encode(encoded, p_buf, file_len);
-	char *encoded = b64_encode(p_buf, file_len);
-	printf("File: \n%s\n", encoded);
-	log_info("Successfully sent file");
+	char *encoded = b64_encode((unsigned char*)p_buf, file_len);
+	if (encoded)
+	{
+		printf("File: \n%s\n", encoded);
+		log_info("Successfully sent file");
+	} else {
+		printf("Error\n");
+		log_warn("Error encoding b64");
+	}
 	
+	
+	free(encoded);
 	free(p_buf);
 	free(path_cpy);
 }
