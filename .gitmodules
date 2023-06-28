@@ -1,3 +1,0 @@
-[submodule "service/src/b64.c"]
-	path = service/src/b64.c
-	url = https://github.com/jwerle/b64.c.git
