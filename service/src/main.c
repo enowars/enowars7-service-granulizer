@@ -353,7 +353,7 @@ void upload_file(const char* ending)
 		return;
 	}
 
-	int written = fwrite(input, 1, len, fp);
+	size_t written = fwrite(input, 1, len, fp);
 	if (written != len)
 	{
 		printf("Error writing to file\n");

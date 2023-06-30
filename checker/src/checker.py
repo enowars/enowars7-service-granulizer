@@ -4,6 +4,7 @@ from enochecker.utils import SimpleSocket, assert_equals, assert_in
 import random
 import os
 import string
+import wave
 import base64
 import json
 import re
@@ -35,7 +36,7 @@ class GranulizerChecker(BaseChecker):
 
     ##### EDIT YOUR CHECKER PARAMETERS
     flag_variants = 1
-    noise_variants = 2
+    noise_variants = 3
     havoc_variants = 0
     exploit_variants = 2
 
@@ -100,7 +101,7 @@ class GranulizerChecker(BaseChecker):
         )
 
 
-    def granulize_file(self, conn: SimpleSocket, filename: str, username: str):
+    def granulize_file(self, conn: SimpleSocket, filename: str, username: str, filetype: str):
         self.debug(f"Try to granulize file {filename}\n")
     
         conn.write(f"granulize\n")
@@ -111,7 +112,8 @@ class GranulizerChecker(BaseChecker):
         )
 
         conn.write(f"{filename}\n")
-        expect_str = "written to file users/{}/granulized.pcm\nWhat do you want to do?\n > ".format(username)
+        
+        expect_str = "written to file users/{}/granulized.{}\nWhat do you want to do?\n > ".format(username, filetype)
         conn.readline_expect(
             expect_str,
             read_until=expect_str,
@@ -120,8 +122,54 @@ class GranulizerChecker(BaseChecker):
 
         self.debug("Granulized successfully!\n")
 
-        
+    def generate_wav_random(self):
+        filename = "output.wav"
+        nchannels = 1
+        sampwidth = 1  # 8-bit
+        framerate = 16000
+        nframes = framerate * 1  # 5 seconds
 
+        w = wave.open(filename, 'w')
+        w.setparams((nchannels, sampwidth, framerate, nframes, 'NONE', 'not compressed'))
+
+        # Generate random audio data
+        data = bytearray([random.randint(0, 255) for _ in range(nframes)])
+
+        w.writeframes(data)
+        w.close()
+
+        with open(filename, 'rb') as fd:
+            contents = fd.read()
+        return contents
+    
+
+    def put_wav_random(self, conn: SimpleSocket, filename: str):
+        conn.write(f"upload wav\n")
+        conn.readline_expect(
+            b"Enter file name for new file: ",
+            read_until=b"Enter file name for new file: ",
+            exception_message="Failed to enter 'upload wav' command"
+        )
+        conn.write(f"{filename}\n")
+        conn.readline_expect(
+            b"Enter base64 encoded wave file (maximum 4kB bytes long)\n",
+            read_until=b"Enter base64 encoded wave file (maximum 4kB bytes long)\n",
+            exception_message="Failed to enter file name"
+        )
+
+        wav_data = self.generate_wav_random()
+        #write wav
+        wav_bytes = base64.b64encode(wav_data)
+        wavb64 = wav_bytes.decode('utf-8')        
+        conn.write(f"{wavb64}\n")
+        conn.readline_expect(
+            b"Success\n",
+            read_until=b"Success\n",
+            exception_message="B64 encoded flag writing did not work"
+        )
+        return wav_data
+
+        
     #checker has to login before put_pcm is called
     def put_pcm(self, conn: SimpleSocket, filename: str, pcm_data: str):
         self.debug(f"Put .pcm file as flag")
@@ -151,7 +199,7 @@ class GranulizerChecker(BaseChecker):
         )
     
     #downloads a shared pcm from another user into own granulized.pcm
-    def get_shared_pcm(self, conn: SimpleSocket, user: str, filename: str, key: str) -> bytearray:
+    def get_shared_pcm(self, conn: SimpleSocket, user: str, filename: str, key: str, ignoreErrors=False) -> bytearray:
         self.debug(f"Get shared .pcm file")
         conn.write(f"sharing use key\n")
         conn.readline_expect(
@@ -175,13 +223,19 @@ class GranulizerChecker(BaseChecker):
         line = conn.read_n_lines(1)
         line = line[0]
         line = line.decode('utf-8')
-        self.debug(line)
-        if "written to file" not in line:
-            raise EnoException("Failed to access shared .pcm file")
-        conn.read_until("> ")
 
+        if "written to file" not in line:
+            if not ignoreErrors:
+                raise EnoException("Failed to access shared .pcm file")
+            else:
+                conn.read_until("> ")
+                return False
+            
+        conn.read_until("> ")
+        return True
+    
     def get_pcm(self, conn: SimpleSocket, filename: str) -> bytearray:
-        self.debug(f"Get .pcm file as flag")
+        self.debug(f"Get .pcm file")
 
         conn.write(f"download pcm\n")
         conn.readline_expect(
@@ -195,16 +249,34 @@ class GranulizerChecker(BaseChecker):
         conn.readline()
         conn.readline() #TODO add timeout
         base64_b = conn.readline()
-        self.debug("Read b64 encoded:")
-        self.debug(base64_b)
         file_content_b = base64.decodebytes(base64_b)
-        self.debug("Base64 decoded:")
-        self.debug(file_content_b)
         
         conn.readline()
 
         return file_content_b
     
+    def get_wav(self, conn: SimpleSocket, filename: str) -> bytearray:
+        self.debug(f"Get .wav file")
+
+        conn.write(f"download wav\n")
+        conn.readline_expect(
+            b"Filename: ",
+            read_until=b"Filename: ",
+            exception_message="Failed to enter file name"
+        )
+
+        conn.write(f"{filename}\n")
+
+        conn.readline()
+        conn.readline() #TODO add timeout
+        base64_b = conn.readline()
+        file_content_b = base64.decodebytes(base64_b)
+        
+        conn.readline()
+
+        return file_content_b
+
+
     def set_option_granular_rate(self, conn: SimpleSocket, value: int):
         #set granular rate
         conn.write(f"set option granular_rate\n")
@@ -269,9 +341,6 @@ class GranulizerChecker(BaseChecker):
     def reverse_pcm(self, bytes_in: bytearray, granular_number_samples: int, granular_order_samples,
         granular_order_timelens, granular_order_buffer_lens):
         
-        self.debug("Reverse pcm")
-        self.debug("granular_number_samples:")
-        self.debug(granular_number_samples)
         grain_offset = 0
         grains_list = {}
         for i in range(granular_number_samples): #reconstruct grains with correct length
@@ -282,11 +351,8 @@ class GranulizerChecker(BaseChecker):
 
             orig_grain = [0] * this_grain_len #init empty array for this grain
             
-            self.debug(this_grain_len)
             for g in range(this_grain_len):
                 index_read = g * this_grain_timelen + grain_offset
-                self.debug("Index read")
-                self.debug(index_read)
                 orig_grain[g] = bytes_in[index_read]
 
             #second * this_grain_timelen is necessary to skip the smoothing grains in between correct data
@@ -301,11 +367,8 @@ class GranulizerChecker(BaseChecker):
             orig_data.append(grains_list.get(i))
         orig_data = self.flatten(orig_data)
         #convert into string:
-        self.debug("Reverse done, orig_data flattened:")
-        self.debug(orig_data)
         d = bytes(orig_data)
         utf8_str = d.decode('utf-8')
-        self.debug(utf8_str)
         return utf8_str
 
     def helper_parse_bytearray(self, byte_array):
@@ -351,11 +414,6 @@ class GranulizerChecker(BaseChecker):
         granular_order_samples_b = conn.readline()
         granular_order_timelens_b = conn.readline()
         granular_order_buffer_lens_b = conn.readline()
-        self.debug("Got:")
-        self.debug(granular_number_samples_b)
-        self.debug(granular_order_samples_b)
-        self.debug(granular_order_timelens_b)
-        self.debug(granular_order_buffer_lens_b)
         
         conn.readline_expect(
             b"What do you want to do?",
@@ -370,11 +428,7 @@ class GranulizerChecker(BaseChecker):
         back['granular_order_samples'] = self.helper_parse_bytearray_to_list(granular_order_samples_b)
         back['granular_order_timelens'] = self.helper_parse_bytearray_to_list(granular_order_timelens_b)
         back['granular_order_buffer_lens'] = self.helper_parse_bytearray_to_list(granular_order_buffer_lens_b)
-        self.debug(back['granular_number_samples'])
-        self.debug(back['granular_order_samples'])
-        self.debug(back['granular_order_timelens'])
-        self.debug(back['granular_order_buffer_lens'])
-        
+
         return back
 
     def generate_cool_username(self):
@@ -430,7 +484,6 @@ class GranulizerChecker(BaseChecker):
         conn.write(f"sharing allow\n")
         line = conn.read_n_lines(1)
         line = line[0].decode('utf-8')
-        self.debug(line)
         key = line.split(" ")[2]
         key = key.replace('\n', '')
         self.debug("Key: ")
@@ -584,6 +637,31 @@ class GranulizerChecker(BaseChecker):
                 'noise1-key': key
             }
             self.logout(conn)
+        elif self.variant_id == 2:
+            #put wave file
+            username, password = self.generate_random_user()
+
+            self.debug(f"Connecting to service")
+
+            conn = self.connect()
+            conn.read_until(">")
+
+            self.register_user(conn, username, password)
+            self.login_user(conn, username, password)
+            
+            self.set_random_options(conn)
+
+            filename = self.generate_random_filename_wav()
+            data = self.put_wav_random(conn, filename)
+            
+            #store data for getnoise 0
+            self.chain_db = {
+                "noise2-user": username,
+                "noise2-pwd": password,
+                "noise2-filename": filename,
+                'noise2-data': data
+            }
+            self.logout(conn)
         else:
             raise EnoException("Wrong variant_id provided")
 
@@ -606,7 +684,7 @@ class GranulizerChecker(BaseChecker):
             self.login_user(conn, username, password)
             #it is important to NOT choose a volume level other than 1
                 #self.set_random_options(conn)
-            self.granulize_file(conn, filename, username)
+            self.granulize_file(conn, filename, username, "pcm")
 
             #check if file is correctly reversible
             data_service_granulized = self.get_pcm(conn, "granulized.pcm")
@@ -678,6 +756,42 @@ class GranulizerChecker(BaseChecker):
             if reversed != data:
                 raise BrokenServiceException("Unexpected granular data retreived")
             self.debug("Reversed noise looks good")
+        elif self.variant_id == 2:
+            # First we check if the previous putflag succeeded!
+            try:
+                username: str = self.chain_db["noise2-user"]
+                password: str = self.chain_db["noise2-pwd"]
+                filename: str = self.chain_db["noise2-filename"]
+                data:     str = self.chain_db["noise2-data"]
+            except Exception as ex:
+                self.debug(f"error getting notes from db: {ex}")
+                raise BrokenServiceException("Previous putnoise failed.")
+            
+            #login
+            conn = self.connect()
+            conn.read_until(">")
+
+            self.login_user(conn, username, password)
+            self.granulize_file(conn, filename, username, "wav")
+
+            #check if file is correctly reversible
+            data_service_granulized = self.get_wav(conn, "granulized.wav")
+            #Get granulize parameters
+            granulize_params = self.granulize_info(conn)
+            #here no deep checking or reversing of the .wav file is performed
+            #only really rough check:
+            if len(data_service_granulized) < len(data):
+                raise BrokenServiceException("Unexpected granulized wav data retrieved")
+
+            #check if original file is still available
+            data_service_orig = self.get_wav(conn, filename)
+            
+            if data_service_orig != data:
+                raise BrokenServiceException("Unexpected uploaded data retrieved")
+            self.debug("Original data noise looks good")
+
+            self.logout(conn)
+
 
         else:
             raise EnoException("Wrong variant_id provided")
@@ -712,8 +826,6 @@ class GranulizerChecker(BaseChecker):
             #check
             #hash flag!
             attack_info = json.loads(self.attack_info)
-            self.debug("Got attack info:")
-            self.debug(attack_info)
             user_name_exploit = attack_info['user_name']
             file_name_exploit = attack_info['file_name']
 
@@ -733,17 +845,13 @@ class GranulizerChecker(BaseChecker):
 
             # Granulize file of user to be exploited
             path_traversal = "../{user_name}/{file_name}".format(user_name=user_name_exploit, file_name = file_name_exploit)
-            self.granulize_file(conn, path_traversal, username)
+            self.granulize_file(conn, path_traversal, username, "pcm")
 
             #Get granulize parameters
             granulize_params = self.granulize_info(conn)
-            self.debug("Granulize_params:")
-            self.debug(granulize_params)
 
             #get file for reversing
             data = self.get_pcm(conn, "granulized.pcm")
-            self.debug("Got data from server:")
-            self.debug(data)
             data_number_samples = granulize_params['granular_number_samples'] 
             data_order_samples = granulize_params['granular_order_samples']
             data_order_timelens = granulize_params['granular_order_timelens']
@@ -755,8 +863,6 @@ class GranulizerChecker(BaseChecker):
                 data_order_samples,
                 data_order_timelens,
                 data_buffer_lens)
-            self.debug("Complete reversed: ")
-            self.debug(reversed)
             #build hash of this flag and compare
             flag_hash_got = hashlib.sha256(reversed.encode()).hexdigest()
             self.debug(flag_hash_got)
@@ -771,15 +877,13 @@ class GranulizerChecker(BaseChecker):
             return reversed
         elif self.variant_id == 1:
             attack_info = json.loads(self.attack_info)
-            self.debug("Got attack info:")
-            self.debug(attack_info)
             user_name_exploit = attack_info['user_name']
             file_name_exploit = attack_info['file_name']
             
             for i in range(15): #test keys for the last 15 minutes
                 try:
                     # Log a message before any critical action that could raise an error.
-                    self.debug(f"Connecting to service for exploit 2")
+                    self.debug(f"Connecting to service for exploit 1")
                     # Create a TCP connection to the service.
                     conn = self.connect()
                     conn.read_until(">")
@@ -806,17 +910,15 @@ class GranulizerChecker(BaseChecker):
                     self.debug(key_hash)
 
                     #try this key
-                    self.get_shared_pcm(conn, user_name_exploit, file_name_exploit, key_hash)
+                    worked = self.get_shared_pcm(conn, user_name_exploit, file_name_exploit, key_hash, ignoreErrors=True)
+                    if not worked: #try next possible key
+                        continue
 
                     #Get granulize parameters
                     granulize_params = self.granulize_info(conn)
-                    self.debug("Granulize_params:")
-                    self.debug(granulize_params)
 
                     #get file for reversing
                     data = self.get_pcm(conn, "granulized.pcm")
-                    self.debug("Got data from server:")
-                    self.debug(data)
                     data_number_samples = granulize_params['granular_number_samples'] 
                     data_order_samples = granulize_params['granular_order_samples']
                     data_order_timelens = granulize_params['granular_order_timelens']
@@ -828,8 +930,6 @@ class GranulizerChecker(BaseChecker):
                         data_order_samples,
                         data_order_timelens,
                         data_buffer_lens)
-                    self.debug("Complete reversed: ")
-                    self.debug(reversed)
                     #build hash of this flag and compare
                     flag_hash_got = hashlib.sha256(reversed.encode()).hexdigest()
                     self.debug(flag_hash_got)
