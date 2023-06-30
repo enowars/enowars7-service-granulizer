@@ -65,7 +65,7 @@ void sharing_allow_call(const char* username)
         free(key);
         return;
     }
-
+    log_info("Sharing allowed, key: %s", key);
     //'publish' key
     printf("Sharing key: %s\n", key);
 
@@ -111,7 +111,7 @@ void sharing_use_key_call(const char* own_username, const char* username, const 
         return;
     }
     free(key);
-
+    log_info("User %s accesses shared files of user %s of file %s", own_username, username, filename);
 	//build path
 	char file_path[128];
     memset(file_path, 0, 128);
@@ -121,9 +121,7 @@ void sharing_use_key_call(const char* own_username, const char* username, const 
     strcat(file_path, username);
     strcat(file_path, "/");
     strcat(file_path, filename);
-
-	log_debug("Complete file path: %s", file_path);
-
+    
     //granulize this file
     granulize_file(file_path, own_username, current_granular_info);
 }

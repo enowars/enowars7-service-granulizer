@@ -26,7 +26,7 @@ cleaner () {
 }
 DATA_DIR="/service/users"
 
-ncat --keep-open --listen -p 4321 --no-shutdown \
+ncat --keep-open --listen -p 4321 -m 1000 --no-shutdown \
     --wait 10s --sh-exec '/service/granulizer' &
 cleaner "$DATA_DIR"
 #tcpserver -c 1000 -v 0.0.0.0 4321 /service/granulizer &

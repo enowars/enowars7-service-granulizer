@@ -58,9 +58,6 @@ class PageMenu(tk.Frame):
     def uploadFile(self, filename):
         #assumes that we are logged in
 
-        #TODO remove
-        #filename = "/home/luca/Dokumente/Uni/Informatik/CTFProject/code/enowars7-service-granulizer/service/src/users/a/bach.wav"
-
         #check if file has correct ending
         filetype = ""
         if filename.endswith(".wav"):
@@ -95,15 +92,12 @@ class PageMenu(tk.Frame):
             self.controller.sock.send(self.tmp_filename)
             time.sleep(0.1)
             data = self.controller.sock.recv(4096)
+            print("After filename:")
             print(data)
 
             #send data
             self.controller.sock.send(base64_str.encode())
             self.controller.sock.send(b'\n')        
-            time.sleep(0.1)
-            self.controller.sock.recv(4096000)
-            print(data)
-            print()
             time.sleep(0.1)
             res = self.controller.sock.recv(4096)
             print(res)
@@ -112,7 +106,8 @@ class PageMenu(tk.Frame):
                 self.label_error.config(text="Error: unexpected answer from server")
             else:
                 self.label_error.config(text="Success uploading") 
-        except Exception:
+        except Exception as e:
+            print(e)
             self.label_error.config(text="Error connecting")
             return
 

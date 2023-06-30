@@ -2,6 +2,7 @@
 from enochecker import BaseChecker, BrokenServiceException, EnoException, run
 from enochecker.utils import SimpleSocket, assert_equals, assert_in
 import random
+import os
 import string
 import base64
 import json
@@ -34,7 +35,7 @@ class GranulizerChecker(BaseChecker):
 
     ##### EDIT YOUR CHECKER PARAMETERS
     flag_variants = 1
-    noise_variants = 0
+    noise_variants = 2
     havoc_variants = 0
     exploit_variants = 2
 
@@ -42,9 +43,9 @@ class GranulizerChecker(BaseChecker):
     port = 2345  # The port will automatically be picked up as default by self.connect and self.http.
     ##### END CHECKER PARAMETERS
 
-    def register_user(self, conn: SimpleSocket, username: str, password: str, details: str):
+    def register_user(self, conn: SimpleSocket, username: str, password: str):
         self.debug(
-            f"Sending command to register user: {username} with password: {password}, details: {details}"
+            f"Sending command to register user: {username} with password: {password}"
         )
 
         conn.write(f"r\n")
@@ -67,6 +68,10 @@ class GranulizerChecker(BaseChecker):
             read_until=b"ok",
             exception_message="Failed to register user"
         )
+
+    def logout(self, conn: SimpleSocket):
+        conn.write(f"quit\n")
+        conn.close()
 
     def login_user(self, conn: SimpleSocket, username: str, password: str):
         self.debug(f"Sending command to login.")
@@ -118,7 +123,7 @@ class GranulizerChecker(BaseChecker):
         
 
     #checker has to login before put_pcm is called
-    def put_pcm(self, conn: SimpleSocket, filename: str, flag: str):
+    def put_pcm(self, conn: SimpleSocket, filename: str, pcm_data: str):
         self.debug(f"Put .pcm file as flag")
 
         conn.write(f"upload pcm\n")
@@ -136,7 +141,7 @@ class GranulizerChecker(BaseChecker):
         )
 
         #write flag as file
-        flagb64_bytes = base64.b64encode(flag.encode('utf-8'))
+        flagb64_bytes = base64.b64encode(pcm_data.encode('utf-8'))
         flagb64 = flagb64_bytes.decode('utf-8')        
         conn.write(f"{flagb64}\n")
         conn.readline_expect(
@@ -145,7 +150,7 @@ class GranulizerChecker(BaseChecker):
             exception_message="B64 encoded flag writing did not work"
         )
     
-    #downloads a shared pcm from another user
+    #downloads a shared pcm from another user into own granulized.pcm
     def get_shared_pcm(self, conn: SimpleSocket, user: str, filename: str, key: str) -> bytearray:
         self.debug(f"Get shared .pcm file")
         conn.write(f"sharing use key\n")
@@ -196,8 +201,68 @@ class GranulizerChecker(BaseChecker):
         self.debug("Base64 decoded:")
         self.debug(file_content_b)
         
+        conn.readline()
+
         return file_content_b
     
+    def set_option_granular_rate(self, conn: SimpleSocket, value: int):
+        #set granular rate
+        conn.write(f"set option granular_rate\n")
+        conn.readline_expect(
+            b"Number of grains per second: (default 10) ",
+            read_until=b"Number of grains per second: (default 10) ",
+            exception_message="Unexpected answer in setting options"
+        )
+        conn.write(f"{value}\n")
+        conn.readline_expect(
+            b" > ",
+            read_until=b" > ",
+            exception_message="Unexpected answer in setting options"
+        )
+    
+    def set_option_grain_length(self, conn: SimpleSocket, value: int):
+        #set grain length
+        conn.write(f"set option grain timelength\n")
+        conn.readline_expect(
+            b"New timelength of sample: (default 2) ",
+            read_until=b"New timelength of sample: (default 2) ",
+            exception_message="Unexpected answer in setting options"
+        )
+        conn.write(f"{value}\n")
+        conn.readline_expect(
+            b" > ",
+            read_until=b" > ",
+            exception_message="Unexpected answer in setting options"
+        )
+
+    def set_option_volume(self, conn: SimpleSocket, value: int):
+        #set option volume
+        conn.write(f"set option volume\n")
+        conn.readline_expect(
+            b"New volume of sample: (default 100) ",
+            read_until=b"New volume of sample: (default 100) ",
+            exception_message="Unexpected answer in setting options"
+        )
+        conn.write(f"{value}\n")
+        conn.readline_expect(
+            b" > ",
+            read_until=b" > ",
+            exception_message="Unexpected answer in setting options"
+        )
+
+    def set_random_options(self, conn: SimpleSocket):
+        option_granular_rate = random.randint(2, 200)
+        option_grain_length = random.randint(1, 10)
+        option_volume = random.randint(1, 100)
+
+        if random.choice([True, False]): #little bit of randomization of settings
+            self.set_option_granular_rate(conn, option_granular_rate)
+        if random.choice([True, False]):
+            self.set_option_grain_length(conn, option_grain_length)
+        if random.choice([True, False]):
+            self.set_option_volume(conn, option_volume)
+
+
     def flatten(self, lst):
         return list(itertools.chain(*[self.flatten(i) if isinstance(i, list) else [i] for i in lst]))
 
@@ -211,17 +276,23 @@ class GranulizerChecker(BaseChecker):
         grains_list = {}
         for i in range(granular_number_samples): #reconstruct grains with correct length
             this_grain_orig_pos = granular_order_samples[i]
-            this_grain_timelen = granular_order_timelens[this_grain_orig_pos]
+            this_grain_timelen = granular_order_timelens[i] #time shift
+            #number original bytes
             this_grain_len = (int) (granular_order_buffer_lens[this_grain_orig_pos] / this_grain_timelen)
 
             orig_grain = [0] * this_grain_len #init empty array for this grain
             
+            self.debug(this_grain_len)
             for g in range(this_grain_len):
                 index_read = g * this_grain_timelen + grain_offset
+                self.debug("Index read")
+                self.debug(index_read)
                 orig_grain[g] = bytes_in[index_read]
 
             #second * this_grain_timelen is necessary to skip the smoothing grains in between correct data
-            grain_offset += this_grain_timelen * this_grain_len * this_grain_timelen
+            grain_offset += this_grain_timelen * this_grain_len
+            grain_offset += this_grain_timelen
+            #grain_offset = grain_offset + this_grain_timelen * this_grain_len * this_grain_timelen
             grains_list[this_grain_orig_pos] = orig_grain #add reconstructed grain to list
             
         #reconstruct order of grains
@@ -235,9 +306,6 @@ class GranulizerChecker(BaseChecker):
         d = bytes(orig_data)
         utf8_str = d.decode('utf-8')
         self.debug(utf8_str)
-        #char_array = [chr(i) for i in orig_data if i is not None]
-        #reconstructed_str = ''.join(char_array)
-        #reconstructed_str = ''.join(orig_data)
         return utf8_str
 
     def helper_parse_bytearray(self, byte_array):
@@ -291,13 +359,14 @@ class GranulizerChecker(BaseChecker):
         
         conn.readline_expect(
             b"What do you want to do?",
+            #b" > ",
             read_until=b"> ",
             exception_message="Wrong output for granulize info"
         )
         back = {}
 
         #convert:
-        back['granular_number_samples'] = self.helper_parse_bytearray(granular_number_samples_b)
+        back['granular_number_samples'] = self.helper_parse_bytearray(granular_number_samples_b) #TODO problem
         back['granular_order_samples'] = self.helper_parse_bytearray_to_list(granular_order_samples_b)
         back['granular_order_timelens'] = self.helper_parse_bytearray_to_list(granular_order_timelens_b)
         back['granular_order_buffer_lens'] = self.helper_parse_bytearray_to_list(granular_order_buffer_lens_b)
@@ -308,16 +377,67 @@ class GranulizerChecker(BaseChecker):
         
         return back
 
-    def active_key_sharing(self, conn: SimpleSocket):
+    def generate_cool_username(self):
+        #generates cool usernames! (thx chatGPT for the code)
+
+        # List of adjectives        
+        adjectives = ['Analog', 'Vintage', 'Modular', 'Buzzy', 'Warm', 'Saturated', 'Characterful', 'Organic', 'Textured', 'Gritty', 'Grungy', 'LoFi', 'Tape', 'Wobbly', 'Mellow', 'Melodic', 'Harmonic', 'Smooth', 'Creamy', 'Liquid', 'Deep', 'Funky', 'Groovy', 'Squishy', 'Fuzzy', 'Funky', 'Growling', 'Whirling', 'Breathy', 'Expressive', 'Resonant', 'Lush', 'Vibrant', 'Luminous', 'Colorful', 'Dreamy', 'Sweeping', 'Evocative', 'Hypnotic', 'Immersive', 'Spatial', 'Expansive', 'Enveloping', 'Ambient', 'Textural', 'Wavering', 'Shimmering', 'Glitchy', 'Noisy', 'Chaotic', 'Energetic', 'Dynamic', 'Driving', 'Robust', 'Powerful', 'Impactful', 'Harsh', 'Wild', 'Unfiltered', 'Roaring', 'Rumbling', 'Intense', 'Analogous', 'Otherworldly', 'Unconventional', 'Experimental', 'Uncharted', 'Unorthodox', 'Innovative', 'AvantGarde']
+        # List of nouns
+        nouns = ['Synth', 'Beat', 'Sound', 'Wave', 'Groove', 'Patch', 'Filter', 'Sequence', 'LFO', 'Sampler', 'Drum', 'Bass', 'Lead', 'Modulation', 'Chord', 'Sequence', 'Noise', 'Effect', 'Envelope', 'Arpeggio', 'Beethoven', 'Mozart', 'Bach', 'Chopin', 'Mendelssohn', 'Schubert', 'Handel', 'Haydn', 'Vivaldi', 'Tchaikovsky', 'Verdi', 'Stravinsky', 'Mahler', 'Debussy', 'Rachmaninoff', 'Brahms', 'Schumann', 'Puccini', 'Liszt', 'Prokofiev', 'Sibelius', 'Grieg', 'Ravel', 'SaintSaens', 'Bizet', 'Shostakovich', 'Berlioz', 'Dvorak', 'Orff', 'Schoenberg', 'Bartok', 'Haendel', 'Pergolesi', 'Palestrina', 'Corelli', 'Purcell']
+
+        adjective = random.choice(adjectives)
+        noun = random.choice(nouns)
+        username = adjective + noun + str(random.randint(0, 9999))
+
+        return username       
+
+    def generate_random_user(self):
+        # First we need to register a user. So let's create some random strings. (Your real checker should use some funny usernames or so)
+        username = self.generate_cool_username()
+        password: str = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=12)
+        )
+        return username, password
+
+    def generate_random_pcm_content(self):
+        length = random.randint(8, 1024 * 50)
+        random_bytes = os.urandom(length)
+        return random_bytes
+    
+    def generate_random_printable_pcm_content(self) -> str:
+        # Generate a random printable string of a given length
+        length = random.randint(10, 4096)
+        random_string = ''.join(random.choice(string.printable) for _ in range(length))
+        return random_string
+    
+    def generate_random_filename(self) -> str:
+        # Generate a random printable string of a given length
+        length = random.randint(5, 16)
+        random_string = ''.join(random.choice(string.ascii_lowercase) for _ in range(length))
+        return random_string
+    
+    def generate_random_filename_pcm(self) -> str:
+        name = self.generate_random_filename()
+        name += '.pcm'
+        return name
+
+    def generate_random_filename_wav(self) -> str:
+        name = self.generate_random_filename()
+        name += '.wav'
+        return name
+
+    def active_key_sharing(self, conn: SimpleSocket) -> str:
         conn.write(f"sharing allow\n")
         line = conn.read_n_lines(1)
         line = line[0].decode('utf-8')
         self.debug(line)
         key = line.split(" ")[2]
         key = key.replace('\n', '')
+        self.debug("Key: ")
+        self.debug(key)
         if (len(key) != 64):
             raise EnoException("Unexpected key length of not 64 read from server")
-        
+        return key
 
     def putflag(self):  # type: () -> None
         """
@@ -331,16 +451,7 @@ class GranulizerChecker(BaseChecker):
                 the preferred way to report errors in the service is by raising an appropriate enoexception
         """
         if self.variant_id == 0:
-            # First we need to register a user. So let's create some random strings. (Your real checker should use some funny usernames or so)
-            username: str = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            password: str = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            details: str = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)                
-            )
+            username, password = self.generate_random_user()
 
             # Log a message before any critical action that could raise an error.
             self.debug(f"Connecting to service")
@@ -349,7 +460,7 @@ class GranulizerChecker(BaseChecker):
             welcome = conn.read_until(">")
 
             # Register a new user
-            self.register_user(conn, username, password, details)
+            self.register_user(conn, username, password)
 
             # Now we need to login
             self.login_user(conn, username, password)
@@ -366,10 +477,11 @@ class GranulizerChecker(BaseChecker):
             # This is not a real dictionary! You cannot update it (i.e., self.chain_db["foo"] = bar) and some types are converted (i.e., bool -> str.). See: https://github.com/enowars/enochecker/issues/27
             self.chain_db = {
                 "username": username,
-                "password": password,
-                "details": details
+                "password": password
             }
-
+            
+            self.logout(conn)
+            
             return json.dumps({
                 "user_name": username,
                 "file_name": flag_file_name
@@ -393,7 +505,6 @@ class GranulizerChecker(BaseChecker):
             try:
                 username: str = self.chain_db["username"]
                 password: str = self.chain_db["password"]
-                details: str = self.chain_db["details"]
             except Exception as ex:
                 self.debug(f"error getting notes from db: {ex}")
                 raise BrokenServiceException("Previous putflag failed.")
@@ -413,18 +524,163 @@ class GranulizerChecker(BaseChecker):
             if (flag != self.flag):
                 raise BrokenServiceException("flags are not similar!")
 
-            # Exit!
-            self.debug(f"Sending exit command")
-            conn.write(f"exit\n")
-            conn.close()
+            self.logout(conn)
         else:
             raise EnoException("Wrong variant_id provided")
 
     def putnoise(self):
-        raise EnoException("Wrong variant_id provided")
+        if self.variant_id == 0: #upload random PCM file
+            username, password = self.generate_random_user()
+
+            self.debug(f"Connecting to service")
+
+            conn = self.connect()
+            conn.read_until(">")
+
+            self.register_user(conn, username, password)
+            self.login_user(conn, username, password)
+            
+            self.set_random_options(conn)
+
+            data = self.generate_random_printable_pcm_content()
+            filename = self.generate_random_filename_pcm()
+            self.put_pcm(conn, filename, data)
+
+            #store data for getnoise 0
+            self.chain_db = {
+                "noise0-user": username,
+                "noise0-pwd": password,
+                "noise0-filename": filename,
+                'noise0-data': data
+            }
+            self.logout(conn)
+        elif self.variant_id == 1:
+            #test for functionality of sharing granulized files
+            #puts a random pcm file and shares this account
+            username, password = self.generate_random_user()
+
+            self.debug(f"Connecting to service")
+
+            conn = self.connect()
+            conn.read_until(">")
+
+            self.register_user(conn, username, password)
+            self.login_user(conn, username, password)
+
+            key = self.active_key_sharing(conn)
+
+            self.set_random_options(conn)
+
+            data = self.generate_random_printable_pcm_content()
+            filename = self.generate_random_filename_pcm()
+            self.put_pcm(conn, filename, data)
+
+            #store data for getnoise 1
+            self.chain_db = {
+                "noise1-user": username,
+                "noise1-pwd": password,
+                "noise1-filename": filename,
+                'noise1-data': data,
+                'noise1-key': key
+            }
+            self.logout(conn)
+        else:
+            raise EnoException("Wrong variant_id provided")
 
     def getnoise(self):
-        raise EnoException("Wrong variant_id provided")
+        if self.variant_id == 0: #upload random PCM file
+            # First we check if the previous putflag succeeded!
+            try:
+                username: str = self.chain_db["noise0-user"]
+                password: str = self.chain_db["noise0-pwd"]
+                filename: str = self.chain_db["noise0-filename"]
+                data: str = self.chain_db["noise0-data"]
+            except Exception as ex:
+                self.debug(f"error getting notes from db: {ex}")
+                raise BrokenServiceException("Previous putnoise failed.")
+            
+            #login
+            conn = self.connect()
+            conn.read_until(">")
+
+            self.login_user(conn, username, password)
+            #it is important to NOT choose a volume level other than 1
+                #self.set_random_options(conn)
+            self.granulize_file(conn, filename, username)
+
+            #check if file is correctly reversible
+            data_service_granulized = self.get_pcm(conn, "granulized.pcm")
+            #Get granulize parameters
+            granulize_params = self.granulize_info(conn)
+            data_number_samples = granulize_params['granular_number_samples'] 
+            data_order_samples = granulize_params['granular_order_samples']
+            data_order_timelens = granulize_params['granular_order_timelens']
+            data_buffer_lens = granulize_params['granular_order_buffer_lens']
+            #reverse
+            reversed = self.reverse_pcm(
+                data_service_granulized, 
+                data_number_samples,
+                data_order_samples,
+                data_order_timelens,
+                data_buffer_lens)
+            #check if reversed is original file
+            if reversed != data:
+                raise BrokenServiceException("Unexpected granular data retreived")
+            self.debug("Reversed noise looks good")
+
+            #check if original file is still available
+            data_service_orig = self.get_pcm(conn, filename)
+            data_service_orig = data_service_orig.decode('ascii')
+            
+            if data_service_orig != data:
+                raise BrokenServiceException("Unexpected uploaded data retreived")
+            self.debug("Original data noise looks good")
+
+            self.logout(conn)
+        elif self.variant_id == 1: #test for functionality of sharing granulized files
+            try:
+                username: str = self.chain_db["noise1-user"]
+                password: str = self.chain_db["noise1-pwd"]
+                filename: str = self.chain_db["noise1-filename"]
+                data: str     = self.chain_db["noise1-data"]
+                key: str      = self.chain_db["noise1-key"]
+            except Exception as ex:
+                self.debug(f"error getting notes from db: {ex}")
+                raise BrokenServiceException("Previous putnoise failed.")
+
+            conn = self.connect()
+            conn.read_until(">")
+
+            #register as a new random user
+            usernamenew, passwordnew = self.generate_random_user()
+            self.register_user(conn, usernamenew, passwordnew)
+
+            self.login_user(conn, usernamenew, passwordnew)
+            
+            self.get_shared_pcm(conn, username, filename, key)
+            #Get granulize parameters
+            granulize_params = self.granulize_info(conn)
+            #Get pcm file
+            data_service_granulized = self.get_pcm(conn, "granulized.pcm")
+            self.logout(conn)
+            data_number_samples = granulize_params['granular_number_samples'] 
+            data_order_samples = granulize_params['granular_order_samples']
+            data_order_timelens = granulize_params['granular_order_timelens']
+            data_buffer_lens = granulize_params['granular_order_buffer_lens']
+            #reverse
+            reversed = self.reverse_pcm(
+                data_service_granulized, 
+                data_number_samples,
+                data_order_samples,
+                data_order_timelens,
+                data_buffer_lens)
+            #check if reversed is original file
+            if reversed != data:
+                raise BrokenServiceException("Unexpected granular data retreived")
+            self.debug("Reversed noise looks good")
+
+        else:
+            raise EnoException("Wrong variant_id provided")
     
     def havoc(self):
         raise EnoException("Wrong variant_id provided")
@@ -461,24 +717,16 @@ class GranulizerChecker(BaseChecker):
             user_name_exploit = attack_info['user_name']
             file_name_exploit = attack_info['file_name']
 
+            username, password = self.generate_random_user()
+
             # Log a message before any critical action that could raise an error.
             self.debug(f"Connecting to service")
             # Create a TCP connection to the service.
             conn = self.connect()
             welcome = conn.read_until(">")
 
-            username: str = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            password: str = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
-            details: str = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)                
-            )
-
             # Register a new random user for exploiting
-            self.register_user(conn, username, password, details)
+            self.register_user(conn, username, password)
 
             # Now we need to login
             self.login_user(conn, username, password)
@@ -518,6 +766,8 @@ class GranulizerChecker(BaseChecker):
                 raise BrokenServiceException("Flag is not correct")
             self.debug("Correct hash!")
             
+            self.logout(conn)
+
             return reversed
         elif self.variant_id == 1:
             attack_info = json.loads(self.attack_info)
@@ -532,20 +782,13 @@ class GranulizerChecker(BaseChecker):
                     self.debug(f"Connecting to service for exploit 2")
                     # Create a TCP connection to the service.
                     conn = self.connect()
-                    welcome = conn.read_until(">")
+                    conn.read_until(">")
 
-                    username: str = "".join(
-                        random.choices(string.ascii_uppercase + string.digits, k=12)
-                    )
-                    password: str = "".join(
-                        random.choices(string.ascii_uppercase + string.digits, k=12)
-                    )
-                    details: str = "".join(
-                        random.choices(string.ascii_uppercase + string.digits, k=12)                
-                    )
+                    username, password = self.generate_random_user()
+
 
                     # Register a new random user for exploiting
-                    self.register_user(conn, username, password, details)
+                    self.register_user(conn, username, password)
 
                     # Now we need to login
                     self.login_user(conn, username, password)
@@ -595,6 +838,7 @@ class GranulizerChecker(BaseChecker):
                     if flag_hash_got != self.flag_hash:
                         raise BrokenServiceException("Flag is not correct")
                     self.debug("Correct hash!")
+                    self.logout(conn)
                     
                     return reversed
                 except:

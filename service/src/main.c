@@ -63,7 +63,7 @@ char* ask(const char* prompt)
 		tok = strchr(buf, '\n');
 		if (tok) *tok = '\0';
 	} else { //In this case an EOF was detected, exit this program
-		//quit_call();
+		quit_call();
 	}
 	return buf;
 }
@@ -301,7 +301,7 @@ void upload_file(const char* ending)
 
 	printf("Enter base64 encoded wave file (maximum 4kB bytes long)\n");
 	char *base64encoded = calloc(MAX_FILE_UPLOAD_LEN + 1, sizeof(char));
-	char *res = fgets(base64encoded, MAX_FILE_DOWNLOAD_LEN, stdin); //TODO allocates much memory, refactor
+	char *res = fgets(base64encoded, MAX_FILE_UPLOAD_LEN, stdin); //TODO allocates much memory, refactor
 	if (res == NULL)
 	{
 		printf("Error reading base64 data\n");
@@ -319,10 +319,11 @@ void upload_file(const char* ending)
 		printf("File is too long!\n");
 		return;
 	}
-
 	//decode and write to file:
-	char *input = (char *) b64_decode(base64encoded, strlen(base64encoded));
-	int len = strlen(input);
+	size_t len = 0; //TODO not completely working!
+	char *input = (char *) b64_decode_ex(base64encoded, strlen(base64encoded), &len);
+	//int len = strlen(input);
+	//len = strlen(base64encoded); //TODO looks better but why?
 	log_trace("Inputted length: %i", strlen(base64encoded));
 	log_trace("Decoded %i bytes of original base64 file", len);
 	free(base64encoded);
@@ -588,6 +589,7 @@ static void set_option_volume()
 
 static void sharing_allow()
 {
+	log_trace("Sharing allow call");
 	if (!sharing_is_allowed(current_user))
 	{
 		sharing_allow_call(current_user);
