@@ -37,7 +37,7 @@ class GranulizerChecker(BaseChecker):
     ##### EDIT YOUR CHECKER PARAMETERS
     flag_variants = 1
     noise_variants = 3
-    havoc_variants = 0
+    havoc_variants = 2
     exploit_variants = 2
 
     service_name = "granulizer"
@@ -228,10 +228,10 @@ class GranulizerChecker(BaseChecker):
             if not ignoreErrors:
                 raise EnoException("Failed to access shared .pcm file")
             else:
-                conn.read_until("> ")
+                conn.read_until(f">")
                 return False
             
-        conn.read_until("> ")
+        conn.read_until(f">")
         return True
     
     def get_pcm(self, conn: SimpleSocket, filename: str) -> bytearray:
@@ -510,7 +510,7 @@ class GranulizerChecker(BaseChecker):
             self.debug(f"Connecting to service")
             # Create a TCP connection to the service.
             conn = self.connect()
-            welcome = conn.read_until(">")
+            conn.read_until(f">")
 
             # Register a new user
             self.register_user(conn, username, password)
@@ -564,7 +564,7 @@ class GranulizerChecker(BaseChecker):
 
             self.debug(f"Connecting to the service")
             conn = self.connect()
-            welcome = conn.read_until(">")
+            conn.read_until(f">")
 
             # Let's login to the service
             self.login_user(conn, username, password)
@@ -588,7 +588,7 @@ class GranulizerChecker(BaseChecker):
             self.debug(f"Connecting to service")
 
             conn = self.connect()
-            conn.read_until(">")
+            conn.read_until(f">")
 
             self.register_user(conn, username, password)
             self.login_user(conn, username, password)
@@ -615,7 +615,7 @@ class GranulizerChecker(BaseChecker):
             self.debug(f"Connecting to service")
 
             conn = self.connect()
-            conn.read_until(">")
+            conn.read_until(f">")
 
             self.register_user(conn, username, password)
             self.login_user(conn, username, password)
@@ -644,7 +644,7 @@ class GranulizerChecker(BaseChecker):
             self.debug(f"Connecting to service")
 
             conn = self.connect()
-            conn.read_until(">")
+            conn.read_until(f">")
 
             self.register_user(conn, username, password)
             self.login_user(conn, username, password)
@@ -679,8 +679,7 @@ class GranulizerChecker(BaseChecker):
             
             #login
             conn = self.connect()
-            conn.read_until(">")
-
+            conn.read_until(f">")
             self.login_user(conn, username, password)
             #it is important to NOT choose a volume level other than 1
                 #self.set_random_options(conn)
@@ -727,7 +726,7 @@ class GranulizerChecker(BaseChecker):
                 raise BrokenServiceException("Previous putnoise failed.")
 
             conn = self.connect()
-            conn.read_until(">")
+            conn.read_until(f">")
 
             #register as a new random user
             usernamenew, passwordnew = self.generate_random_user()
@@ -769,7 +768,7 @@ class GranulizerChecker(BaseChecker):
             
             #login
             conn = self.connect()
-            conn.read_until(">")
+            conn.read_until(f">")
 
             self.login_user(conn, username, password)
             self.granulize_file(conn, filename, username, "wav")
@@ -797,7 +796,42 @@ class GranulizerChecker(BaseChecker):
             raise EnoException("Wrong variant_id provided")
     
     def havoc(self):
-        raise EnoException("Wrong variant_id provided")
+        if self.variant_id == 0:
+            #failed login
+            
+            username, password = self.generate_random_user()
+            #username = 'a'
+            #password = 'a'
+            # Create a TCP connection to the service.
+            conn = self.connect(timeout = 1)
+            conn.read_until(f">")
+
+            try:
+                self.login_user(conn, username, password)
+            except Exception: #all good
+                return
+            #not good
+            raise BrokenServiceException("Invalid login worked")
+        elif self.variant_id == 1:
+            #random strings
+            size = random.randint(2, 128)
+            # Generate a random string using uppercase letters and digits
+            conn = self.connect(timeout = 1)
+            conn.read_until(f">")
+            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=size))
+            conn.write(res.encode('utf-8'))
+            if bool(random.getrandbits(1)):
+                conn.write(f'\n')
+            try:
+                conn.readline_expect("Please enter login or register\nHello! Do you want to login (l) or register (r)?\n > ",
+                                 "Please enter login or register\nHello! Do you want to login (l) or register (r)?\n > ")
+            except Exception:
+                return #good
+            
+            raise BrokenServiceException("Unexpected answer for wrong input: {}".format(data))
+            
+        else:
+            raise EnoException("Wrong variant_id provided")
     
     def get_time_minutes(self) -> int:
         t = int(time.time())
@@ -835,7 +869,7 @@ class GranulizerChecker(BaseChecker):
             self.debug(f"Connecting to service")
             # Create a TCP connection to the service.
             conn = self.connect()
-            welcome = conn.read_until(">")
+            conn.read_until(f">")
 
             # Register a new random user for exploiting
             self.register_user(conn, username, password)
@@ -886,7 +920,7 @@ class GranulizerChecker(BaseChecker):
                     self.debug(f"Connecting to service for exploit 1")
                     # Create a TCP connection to the service.
                     conn = self.connect()
-                    conn.read_until(">")
+                    conn.read_until(f">")
 
                     username, password = self.generate_random_user()
 
