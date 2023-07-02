@@ -16,11 +16,11 @@
 cleaner () {
     CLEANUP_DIR=$1;
     echo "Starting cleaner function"
-    sleep 1800 #30min
+    #sleep 1800 #30min
     echo "Cleaner function will now regularly clean"
     while true; do
         echo "$CLEANUP_DIR" $(whoami)
-        find "$CLEANUP_DIR" -regex "$CLEANUP_DIR/.+" -empty -mmin +30 -delete
+        find "$CLEANUP_DIR" -regex "$CLEANUP_DIR/.+" -mmin +30 -delete
         sleep 60
     done
 }
