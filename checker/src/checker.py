@@ -441,6 +441,8 @@ class GranulizerChecker(BaseChecker):
 
         return back
 
+
+
     def generate_cool_username(self):
         #generates cool usernames! (thx chatGPT for the code)
 
@@ -451,7 +453,8 @@ class GranulizerChecker(BaseChecker):
 
         adjective = random.choice(adjectives)
         noun = random.choice(nouns)
-        username = adjective + noun + str(random.randint(0, 9999))
+        
+        username = adjective + noun + str(random.randint(0, 99999))
 
         return username       
 
