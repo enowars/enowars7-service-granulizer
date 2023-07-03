@@ -13,5 +13,5 @@ services:
       - ./users/:/service/users:rw
     ports:
       - 2345:4321
-    mem_limit: 1G
-    memswap_limit: 2G
+    mem_limit: 4G
+    memswap_limit: 4G
