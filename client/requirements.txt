@@ -1,0 +1,3 @@
+playsound==1.3.0
+tkdial==0.0.7
+tkinter
