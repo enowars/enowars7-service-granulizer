@@ -1,12 +1,12 @@
 import tkinter as tk               
 from tkinter import font as tkfont
-import sv_ttk
 
 from PageConnect import *
 from PageLogin import *
 from PageRegister import *
 from PageStart import *
 from PageMenu import *
+from PageSharedDataPrompt import *
 
 class SampleApp(tk.Tk):
 
@@ -21,7 +21,7 @@ class SampleApp(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (PageConnect, PageStart, PageLogin, PageRegister, PageMenu):
+        for F in (PageConnect, PageStart, PageLogin, PageRegister, PageMenu, PageSharedDataPrompt):
             page_name = F.__name__
             frame = F(parent=container, controller=self)
             self.frames[page_name] = frame

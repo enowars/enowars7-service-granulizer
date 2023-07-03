@@ -74,11 +74,13 @@ void sharing_allow_call(const char* username)
 
 void sharing_disallow_call(const char* username)
 {
+    log_trace("Sharing disallow call");
     bool res = delete_key(username);
     if (!res)
     {
         printf("Error deleting key\n");
     } else {
+        log_info("Sharing disallow success");
         printf("Key deleted successfully\n");
     }
 }

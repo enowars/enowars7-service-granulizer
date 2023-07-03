@@ -8,7 +8,6 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import messagebox
 from tkdial import *
-import tkinterDnD
 import socket
 from playsound import playsound
 import time
@@ -54,6 +53,9 @@ class PageMenu(tk.Frame):
 
     def uploadBachAction(self):
         self.uploadFile("bach.wav")
+
+    def uploadSpaceAction(self):
+        self.uploadFile("space.wav")
 
     def uploadFile(self, filename):
         #assumes that we are logged in
@@ -112,9 +114,7 @@ class PageMenu(tk.Frame):
             return
 
     def uploadAction(self, event=None):
-        #reset message
-        self.label_error.config(text="") 
-        
+        self.label_error.config(text="") #reset message
         self.chosen_filename = tk.filedialog.askopenfilename(master=self)
         self.uploadFile(self.chosen_filename)
 
@@ -178,6 +178,50 @@ class PageMenu(tk.Frame):
 
         return True
 
+    def granulizeSharedAction(self, event=None):
+        self.label_error.config(text="")
+
+        self.controller.show_frame("PageSharedDataPrompt")
+    
+    def activateKeySharing(self, event=None) -> str:
+        self.label_error.config(text="")
+        self.text_key.configure(state="normal")
+        self.text_key.delete(1.0, "end")
+        self.text_key.insert(1.0, "")
+        self.text_key.configure(state="disabled")
+
+        self.controller.sock.send(b"sharing allow\n")
+        time.sleep(0.1)
+        res = self.controller.sock.recv(4096)
+        res = res.decode('utf-8')
+        if "already" in res:
+            self.label_error.config(text="Error")
+            self.text_key.configure(state="normal")
+            self.text_key.delete(1.0, "end")    
+            self.text_key.configure(state="disabled")
+            return
+        res = res.split(" ")[2]
+        key = res[:64]
+        
+        s = "Key: {}".format(key)
+
+        self.label_error.config(text="Success")
+        self.text_key.configure(state="normal")
+        self.text_key.delete(1.0, "end")
+        self.text_key.insert(1.0, s)
+        self.text_key.configure(state="disabled")
+        
+    def deactiveKeySharing(self, event=None):
+        self.label_error.config(text="")
+        self.controller.sock.send(b"sharing disallow\n")
+        time.sleep(0.1)
+        self.controller.sock.recv(4096)
+        self.label_error.config(text="Success")
+        self.text_key.configure(state="normal")
+        self.text_key.delete(1.0, "end")
+        self.text_key.insert(1.0, "")
+        self.text_key.configure(state="disabled")
+        
     def granulizeAction(self, event=None):
         #send granulize command to granulize tmp.wav / tmp.pcm
         self.label_error.config(text="")
@@ -274,12 +318,20 @@ class PageMenu(tk.Frame):
         label = tk.Label(self, text="Granulizer", font=controller.title_font)
         label.pack(side="top", fill="x", pady=10)
 
+        self.text_key =  tk.Text(self, height=1, borderwidth=0)
+        self.text_key.insert(1.0, "")
+        self.text_key.configure(state="disabled")
+        self.text_key.pack(side="bottom", fill="y", pady=10)
+
+        self.label_error = tk.Label(self, text="")
+        self.label_error.pack(side="bottom", fill="x", pady=10)
+        
         frameDials = tk.Frame(self)
         frameDials.pack(side="right")
 
-        self.dialGrainsPerSecond = Dial(master=self, color_gradient=("black", "red"),
+        self.dialGrainsPerSecond = Dial(master=self, color_gradient=("black", "green"),
                 unit_length=30, radius=100, text_color="white", 
-                needle_color="red", text="Grains per s: ",
+                needle_color="green", text="Grains per s: ",
                 integer=True, scroll_steps=1, start=2, end=200, )
         self.dialGrainsPerSecond.set(10)
         self.dialGrainsPerSecond.pack(in_=frameDials, side="right")
@@ -291,31 +343,42 @@ class PageMenu(tk.Frame):
         self.dialSampleTimelength.set(2)
         self.dialSampleTimelength.pack(in_=frameDials, side="right")
 
-        self.dialVolume = Dial(master=self, color_gradient=("black", "green"),
+        self.dialVolume = Dial(master=self, color_gradient=("black", "red"),
                 unit_length=30, radius=100, text_color="white", 
-                needle_color="green", text="Volume: ",
+                needle_color="red", text="Volume: ",
                 integer=True, scroll_steps=1, start=1, end=100, )
         self.dialVolume.set(100)
         self.dialVolume.pack(in_=frameDials, side="right")
 
-        frameUpload = tk.Frame(self)
+        frameUpload = tk.Frame(self, width=100)
         frameUpload.pack(side="left")
+        elementWidth = 20
 
-        buttonSelectBach = tk.Button(self, text='Open Bach', command=self.uploadBachAction)
-        buttonSelectBach.pack(in_=frameUpload, side="bottom")
+        buttonSelectBach = tk.Button(self, text='Open Bach', command=self.uploadBachAction, width=elementWidth)
+        buttonSelectBach.pack(in_=frameUpload, side="top")
 
-        buttonSelectUpload = tk.Button(self, text='Open File', command=self.uploadAction)
-        buttonSelectUpload.pack(in_=frameUpload, side="bottom")
+        buttonSelectSpace = tk.Button(self, text='Open Space', command=self.uploadSpaceAction, width=elementWidth)
+        buttonSelectSpace.pack(in_=frameUpload, side="top")
 
-        buttonGranulize = tk.Button(self, text='Granulize', command=self.granulizeAction)
-        buttonGranulize.pack(in_=frameUpload, side="bottom")
+        buttonSelectUpload = tk.Button(self, text='Open File', command=self.uploadAction, width=elementWidth)
+        buttonSelectUpload.pack(in_=frameUpload, side="top")
 
-        buttonPlay = tk.Button(self, text='Play Granulized', command=self.playAction)
-        buttonPlay.pack(in_=frameUpload, side="bottom")
+        buttonGranulize = tk.Button(self, text='Granulize', command=self.granulizeAction, width=elementWidth)
+        buttonGranulize.pack(in_=frameUpload, side="top")
+
+        buttonGranulizeShared = tk.Button(self, text='Granulize shared file', command=self.granulizeSharedAction, width=elementWidth)
+        buttonGranulizeShared.pack(in_=frameUpload, side="top")
+
+        buttonPlay = tk.Button(self, text='Play Granulized', command=self.playAction, width=elementWidth)
+        buttonPlay.pack(in_=frameUpload, side="top")
+
+        buttonActivateKeySharing = tk.Button(self, text='Activate key sharing', command=self.activateKeySharing, width=elementWidth)
+        buttonActivateKeySharing.pack(in_=frameUpload, side="top")
+
+        buttonDeactivateKeySharing = tk.Button(self, text='Deactivate key sharing', command=self.deactiveKeySharing, width=elementWidth)
+        buttonDeactivateKeySharing.pack(in_=frameUpload, side="top")
+
 
         buttonLogout = tk.Button(self, text="Logout",
-                           command=self.logout)
-        buttonLogout.pack(in_=frameUpload, side="bottom")
-
-        self.label_error = tk.Label(self, text="")
-        self.label_error.pack(side="top", fill="x", pady=10)
+                           command=self.logout, width=elementWidth)
+        buttonLogout.pack(in_=frameUpload, side="top")
