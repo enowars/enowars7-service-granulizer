@@ -38,6 +38,7 @@ static struct {
   Callback callbacks[MAX_CALLBACKS];
 } L;
 
+char* username = "NONE";
 
 static const char *level_strings[] = {
   "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
@@ -55,13 +56,13 @@ static void stdout_callback(log_Event *ev) {
   buf[strftime(buf, sizeof(buf), "%H:%M:%S", ev->time)] = '\0';
 #ifdef LOG_USE_COLOR
   fprintf(
-    ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ",
+    ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m\x1b[34m%s\x1b[0m ",
     buf, level_colors[ev->level], level_strings[ev->level],
-    ev->file, ev->line);
+    ev->file, ev->line, username);
 #else
   fprintf(
-    ev->udata, "%s %-5s %s:%d: ",
-    buf, level_strings[ev->level], ev->file, ev->line);
+    ev->udata, "%s %-5s %s:%d:%s ",
+    buf, level_strings[ev->level], ev->file, ev->line, username);
 #endif
   vfprintf(ev->udata, ev->fmt, ev->ap);
   fprintf(ev->udata, "\n");
@@ -165,4 +166,9 @@ void log_log(int level, const char *file, int line, const char *fmt, ...) {
   }
 
   unlock();
+}
+
+void set_current_user(char* user)
+{
+  username = user;
 }

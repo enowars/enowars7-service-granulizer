@@ -146,6 +146,7 @@ bool login_user()
 		printf("Welcome \'%s\'!\n", username_cpy);
 		log_trace("User '%s' successful login", username_cpy);
 		current_user = strdup(username_cpy);
+		set_current_user(current_user);
 		free(username_cpy);
 		free(password_cpy);
 		return true;
