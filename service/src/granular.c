@@ -539,7 +539,8 @@ static char* build_new_sample(grain** grains, int num_grains,
         info->order_buffer_lens[i] = g_current->buf_len;
 
         //create overlay with next grain
-        int overlay_buf_len = max(g_current->buf_after_len, g_next->buf_before_len);
+        //int overlay_buf_len = max(g_current->buf_after_len, g_next->buf_before_len);
+        int overlay_buf_len = grains[0]->buf_len;
 
         char *overlay_buf = calloc(overlay_buf_len, sizeof(char)); //use calloc for init with 0
         //log_trace("Created overlay buffer with len %i, buf_after_len %i, buf_before_len %i", 
