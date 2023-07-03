@@ -340,6 +340,16 @@ class GranulizerChecker(BaseChecker):
 
     def reverse_pcm(self, bytes_in: bytearray, granular_number_samples: int, granular_order_samples,
         granular_order_timelens, granular_order_buffer_lens):
+        self.info("Reverse PCM Logging:")
+        self.info(bytes_in)
+        self.info("Num Samples:")
+        self.info(granular_number_samples)
+        self.info("Order Samples:")
+        self.info(granular_order_samples)
+        self.info("Order timelens:")
+        self.info(granular_order_timelens)
+        self.info("Order buffer lens:")
+        self.info(granular_order_buffer_lens)
         
         grain_offset = 0
         grains_list = {}
@@ -702,6 +712,11 @@ class GranulizerChecker(BaseChecker):
                 data_buffer_lens)
             #check if reversed is original file
             if reversed != data:
+                self.info("Reversed data:")
+                self.info(reversed)
+                self.info("Original data:")
+                self.info(data)
+                self.error("Data is not reversed file, in noise variant 0")
                 raise BrokenServiceException("Unexpected granular data retreived")
             self.debug("Reversed noise looks good")
 
@@ -753,6 +768,11 @@ class GranulizerChecker(BaseChecker):
                 data_buffer_lens)
             #check if reversed is original file
             if reversed != data:
+                self.info("Reversed data:")
+                self.info(reversed)
+                self.info("Original data:")
+                self.info(data)
+                self.error("Data is not reversed file, in noise variant 1")
                 raise BrokenServiceException("Unexpected granular data retreived")
             self.debug("Reversed noise looks good")
         elif self.variant_id == 2:
