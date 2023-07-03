@@ -39,6 +39,7 @@ static int base64encode_len(int len)
 
 static void quit_call()
 {
+	log_info("Quitting");
 	//frees all used memory
 	if (current_user)
 	{
@@ -47,7 +48,7 @@ static void quit_call()
 	}
 	destroy_granular_info(last_granular_info);
 	
-	log_info("Freed all memory");
+	
 	printf("Byeee\n");
 	exit(0);
 }
