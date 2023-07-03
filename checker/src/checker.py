@@ -445,9 +445,9 @@ class GranulizerChecker(BaseChecker):
         #generates cool usernames! (thx chatGPT for the code)
 
         # List of adjectives        
-        adjectives = ['Analog', 'Vintage', 'Modular', 'Buzzy', 'Warm', 'Saturated', 'Characterful', 'Organic', 'Textured', 'Gritty', 'Grungy', 'LoFi', 'Tape', 'Wobbly', 'Mellow', 'Melodic', 'Harmonic', 'Smooth', 'Creamy', 'Liquid', 'Deep', 'Funky', 'Groovy', 'Squishy', 'Fuzzy', 'Funky', 'Growling', 'Whirling', 'Breathy', 'Expressive', 'Resonant', 'Lush', 'Vibrant', 'Luminous', 'Colorful', 'Dreamy', 'Sweeping', 'Evocative', 'Hypnotic', 'Immersive', 'Spatial', 'Expansive', 'Enveloping', 'Ambient', 'Textural', 'Wavering', 'Shimmering', 'Glitchy', 'Noisy', 'Chaotic', 'Energetic', 'Dynamic', 'Driving', 'Robust', 'Powerful', 'Impactful', 'Harsh', 'Wild', 'Unfiltered', 'Roaring', 'Rumbling', 'Intense', 'Analogous', 'Otherworldly', 'Unconventional', 'Experimental', 'Uncharted', 'Unorthodox', 'Innovative', 'AvantGarde']
+        adjectives = ['Analog', 'Vintage', 'Modular', 'Buzzy', 'Warm', 'Saturated', 'Characterful', 'Organic', 'Textured', 'Gritty', 'Grungy', 'LoFi', 'Tape', 'Wobbly', 'Mellow', 'Melodic', 'Harmonic', 'Smooth', 'Liquid', 'Deep', 'Groovy', 'Fuzzy', 'Funky', 'Growling', 'Whirling', 'Breathy', 'Expressive', 'Resonant', 'Lush', 'Vibrant', 'Luminous', 'Dreamy', 'Sweeping', 'Hypnotic', 'Immersive', 'Spatial', 'Expansive', 'Enveloping', 'Ambient', 'Textural', 'Wavering', 'Shimmering', 'Glitchy', 'Noisy', 'Chaotic', 'Energetic', 'Dynamic', 'Driving', 'Powerful', 'Impactful', 'Harsh', 'Wild', 'Unfiltered', 'Roaring', 'Rumbling', 'Intense', 'Analogous', 'Otherworldly', 'Unconventional', 'Experimental', 'Uncharted', 'Unorthodox', 'Innovative', 'AvantGarde']
         # List of nouns
-        nouns = ['Synth', 'Beat', 'Sound', 'Wave', 'Groove', 'Patch', 'Filter', 'Sequence', 'LFO', 'Sampler', 'Drum', 'Bass', 'Lead', 'Modulation', 'Chord', 'Sequence', 'Noise', 'Effect', 'Envelope', 'Arpeggio', 'Beethoven', 'Mozart', 'Bach', 'Chopin', 'Mendelssohn', 'Schubert', 'Handel', 'Haydn', 'Vivaldi', 'Tchaikovsky', 'Verdi', 'Stravinsky', 'Mahler', 'Debussy', 'Rachmaninoff', 'Brahms', 'Schumann', 'Puccini', 'Liszt', 'Prokofiev', 'Sibelius', 'Grieg', 'Ravel', 'SaintSaens', 'Bizet', 'Shostakovich', 'Berlioz', 'Dvorak', 'Orff', 'Schoenberg', 'Bartok', 'Haendel', 'Pergolesi', 'Palestrina', 'Corelli', 'Purcell']
+        nouns = ['Synth', 'Beat', 'Sound', 'Wave', 'Groove', 'Patch', 'Filter', 'Sequence', 'LFO', 'Sampler', 'Drum', 'Bass', 'Lead', 'Modulation', 'Chord', 'Sequence', 'Noise', 'Effect', 'Envelope', 'Arpeggio', 'Beethoven', 'Mozart', 'Bach', 'Chopin', 'Mendelssohn', 'Schubert', 'Handel', 'Haydn', 'Vivaldi', 'Tchaikovsky', 'Verdi', 'Stravinsky', 'Mahler', 'Debussy', 'Rachmaninoff', 'Brahms', 'Schumann', 'Puccini', 'Liszt', 'Prokofiev', 'Sibelius', 'Grieg', 'Ravel', 'SaintSaens', 'Bizet', 'Shostakovich', 'Berlioz', 'Dvorak', 'Orff', 'Schoenberg', 'Bartok', 'Haendel', 'Pergolesi', 'Palestrina', 'Corelli', 'Purcell', "AdaLovelace", "GraceHopper", "JeanESammet", "BarbaraLiskov", "FranAllen", "RadiaPerlman", "KarenSpaerckJones", "LynnConway", "MargaretHamilton", "ElisabethHendrickson", "JenniferWidom", "DaphneKoller", "GladysWest", "RuthLichtermanTeitelbaum", "KatherineJohnson", "EllenOchoa", "ThelmaEstrin", "KathleenMcKeown", "BrendaLaurel", "GillianCramptonSmith", "LeslieLamport", "EllenUllman"]
 
         adjective = random.choice(adjectives)
         noun = random.choice(nouns)
@@ -712,6 +712,9 @@ class GranulizerChecker(BaseChecker):
                 data_buffer_lens)
             #check if reversed is original file
             if reversed != data:
+                self.info("Failed for:")
+                self.info(username)
+                self.info(filename)
                 self.info("Reversed data:")
                 self.info(reversed)
                 self.info("Original data:")
@@ -768,6 +771,9 @@ class GranulizerChecker(BaseChecker):
                 data_buffer_lens)
             #check if reversed is original file
             if reversed != data:
+                self.info("Failed for:")
+                self.info(username)
+                self.info(filename)
                 self.info("Reversed data:")
                 self.info(reversed)
                 self.info("Original data:")
