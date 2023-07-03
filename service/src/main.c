@@ -94,6 +94,8 @@ void setup_service()
 	srand(time(NULL)); //create random seed
 
 	add_user_base_folder();
+
+	log_info("Unknown user connected");
 }
 
 /**
@@ -610,12 +612,15 @@ static void sharing_use_key()
 {
 	char *username = ask("Access user: ");
     char *user_dup = strdup(username);
-	
+	log_trace("Entered user name: %s", username);
+
 	char *key = ask("Access key: ");
 	char *key_dup = strdup(key);
-	
+	log_trace("Entered access key: %s\n", key);
+
 	char *file_name = ask("Which file would you like to access: ");
 	char *file_name_dup = strdup(file_name);
+	log_trace("Entered file name: %s", file_name);
 	
 	if (path_contains_illegal_chars(user_dup) || path_contains_illegal_chars(file_name_dup))
 	{

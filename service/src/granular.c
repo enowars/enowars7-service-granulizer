@@ -677,6 +677,8 @@ granular_info* granulize(char* buf, const int buf_len, char** buf_out, int* len_
         }
     } else { //bytes_per_sample = 1, easy case
         log_trace("Detected .pcm granulize data on byte level");
+        //resetting this option, which is not valid for pcm files
+        grain_timefactor_scale = GRAIN_TIMEFACTOR_SCALE_DEFAULT;
         num_grains = buf_len;
         normal_grain_len = 1;
         last_grain_len = 1;
