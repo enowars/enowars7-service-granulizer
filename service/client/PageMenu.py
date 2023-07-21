@@ -6,6 +6,7 @@
 
 import tkinter as tk
 from tkinter import font as tkfont
+from tkinter.filedialog import askopenfilename
 from tkinter import messagebox
 from tkdial import *
 import socket
@@ -115,7 +116,7 @@ class PageMenu(tk.Frame):
 
     def uploadAction(self, event=None):
         self.label_error.config(text="") #reset message
-        self.chosen_filename = tk.filedialog.askopenfilename(master=self)
+        self.chosen_filename = askopenfilename(master=self)
         self.uploadFile(self.chosen_filename)
 
     def sendCurrentOptions(self, 
