@@ -3,18 +3,13 @@
 #### 1. What is Granulizer?
 #### 2. Architecture
 #####      2.1 Setup
-#####      2.2 Models
-#### 2. Underlaying Filter Algorithm
-#####
-#####
-#### 3. Vulnerability (Path Traversal)
-#####      3.1. Vulnerable Code
-#####      3.2. Exploit
-#####      3.3. Fix
-#### 4. Vulnerability (Guessable Sharing Key)
-#####      4.1 Vulnerable Code
-#####      4.2 Exploit
-#####      4.3 Fix
+#####      2.2 Feature: Granulizing
+#####      2.3 Feature: Allowing music creation sharing
+#### 3. Vulnerabilities
+##### 3.1 Path Traversal
+##### 3.2 Broken Sharing Key
+##### 3.3 Reversing the audio algorithm
+#### 4. Known problems
 
 ## 1. What is Granulizer?
 Granulizer is a service designed for the Enowars 7 Attack-Defense CTF by TU Berlin. This service offers functionality for upload music, applying an audio filter to it, and downloading it again. The used audio filter is a custom implementation of a granular synthesis filter (https://en.wikipedia.org/wiki/Granular_synthesis). Granular synthesis is a technique for creating new sounds based on given input. It works by splitting up the existing sound sample into different parts, so called slices, and rearanging them randomly. The new slices also may have different lengths than the original to alter the sound even more. Granular synthesis is commonly used to generate sounds in electronic music.
@@ -68,9 +63,9 @@ Audio file. Currently supported are 8bit / 16bit audio data, the file has to be 
 
 #### Supported granulization parameters
 ##### set option granular_rate
-Sets the number of grains per second for a wave file. 10 is the default value
+Sets the number of grains per second for a wave file. 10 is the default value.
 ##### set option grain timelength
-Sets the length of the new sample. 2 is the default value.
+Sets the length of the new sample. 2 is the default value, which means that each slice is timestretched by the factor 2.
 ##### set option volume
 Sets the volume of the output sample. Has to be between 1 - 100. 100 is the default value, which is the highest volume, 1 is very quiet.
 
@@ -82,7 +77,7 @@ Another user, how has the private key, can use access the other users files by *
 
 If it is wished to deactivate this, use *sharing disallow*. The sharing function is deactivated by default.
 
-## 3. Vulnerability (Path Traversal)
+## 3.1 Vulnerability (Path Traversal)
 The first vulnerability lies in the *granulize* command. It is possible to access other users files, by granulizing them:
 ```../username/flag.pcm```
 With that, the granulized version of the flag can be retrieved. The new file is stored in the own user account and is called *granulized.pcm / granulized.wav*. Now the second challenge is to understand how the audio filter was applied and to reverse it, in order to get the flag.
@@ -90,7 +85,7 @@ With that, the granulized version of the flag can be retrieved. The new file is 
 ### Fix
 Add a ```if (path_contains_illegal_chars(file_name_in)) return;``` check after the input was taken in the granulize function and redeploy. This check is done in every other function which reads in file names, except the *granulize* function.
 
-## 3.1 Broken Sharing Key
+## 3.2 Broken Sharing Key
 The second vulnerability was in the sharing key functionality. User A has to activate this and gets a key, which she shares with User B. User B can then use all uploaded files by User A for granulization. This key is unsecurely generated in *sharing.c:generate_key*:
 ```
 unsigned long timestamp = get_time_milliseconds();
@@ -116,7 +111,7 @@ For exploiting, it could be necessary to try the this hash for the last few roun
 ### Fix
 A suitable fix for this would be to use a safe hash source, such as hashing from ```/dev/urandom``` instead.
 
-## 3.2 Reversing the audio algorithm
+## 3.3 Reversing the audio algorithm
 For retrieving necessary information about the granulization process, use the *granulize info* command. This looks for example as:
 ```
 granular_number_samples = 5
@@ -135,7 +130,7 @@ Now its visible what the granulizing algorithm is doing:
 
 Now an algorithm can be written to restore the original data, which was:  ```Hello```
 
-### Known problems
+### 4. Known problems
 The checker is crushing around 800 rounds, then, the granulizer-mongo docker container has to be restarted.
 
 Apparently, there are some buffer overflows reported by players. But none of them were exploited during CTF, thanks to compiling with stack canaries everywhere (*gcc -fstack-protector-all*).
